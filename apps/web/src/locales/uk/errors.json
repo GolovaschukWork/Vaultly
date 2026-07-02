@@ -24,5 +24,8 @@
   "cannotMoveIntoSelf": "Неможливо перемістити папку в саму себе",
   "cannotMoveIntoDescendant": "Неможливо перемістити папку у власного нащадка",
   "forbidden": "У вас немає прав для цієї дії",
-  "unauthorized": "Увійдіть, щоб продовжити"
+  "unauthorized": "Увійдіть, щоб продовжити",
+  "roomNotFound": "Data room не знайдено",
+  "roomNotFoundDescription": "Ця кімната не існує або у вас немає до неї доступу.",
+  "updateFailed": "Не вдалося оновити елемент"
 }

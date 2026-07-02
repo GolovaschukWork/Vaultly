@@ -1,6 +1,16 @@
-import { Button, Card, CardContent, CardHeader, CardTitle } from '@vaultly/ui';
+import {
+  Button,
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@vaultly/ui';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { FolderOpen, Plus, Share2, Trash2, Vault } from 'lucide-react';
+import { FolderOpen, MoreHorizontal, Plus, Share2, Trash2, Vault } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { AppShell } from '@/components/app-shell';
@@ -122,26 +132,33 @@ function DataRoomsPage() {
                           </span>
                         )}
                         {isOwner && (
-                          <>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-                              onClick={() => setShareTarget({ id: room.id, name: room.name })}
-                              aria-label={t('sharing:share')}
-                            >
-                              <Share2 className="h-4 w-4" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100"
-                              onClick={() => setDeleteTarget({ id: room.id, name: room.name })}
-                              aria-label={t('actions:delete')}
-                            >
-                              <Trash2 className="text-danger h-4 w-4" />
-                            </Button>
-                          </>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8"
+                                aria-label={t('actions:moreActions')}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                onClick={() => setShareTarget({ id: room.id, name: room.name })}
+                              >
+                                <Share2 className="mr-2 h-4 w-4" />
+                                {t('sharing:share')}
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="text-danger focus:text-danger"
+                                onClick={() => setDeleteTarget({ id: room.id, name: room.name })}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                {t('actions:delete')}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         )}
                       </div>
                     </div>

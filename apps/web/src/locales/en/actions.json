@@ -30,5 +30,6 @@
   "enterName": "Enter name",
   "dataRoomName": "Data room name",
   "folderName": "Folder name",
-  "fileName": "File name"
+  "fileName": "File name",
+  "moreActions": "More actions"
 }

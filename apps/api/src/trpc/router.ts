@@ -30,6 +30,11 @@ import {
   requireRoomOwner,
 } from './access';
 import { createSignedStorageUrl } from '../lib/supabase-storage';
+import {
+  hardDeleteFileRecord,
+  purgeAllRoomFileStorage,
+  purgeExpiredSoftDeletedFiles,
+} from '../lib/file-purge';
 import { ensureInvitesActivated, memberRouter } from './member.router';
 
 async function logActivity(
@@ -177,6 +182,8 @@ export const appRouter = router({
 
     delete: protectedProcedure.input(dataRoomDeleteSchema).mutation(async ({ ctx, input }) => {
       await requireRoomOwner(input.id, ctx.userId);
+      await purgeExpiredSoftDeletedFiles(input.id);
+      await purgeAllRoomFileStorage(input.id);
       await prisma.dataRoom.delete({ where: { id: input.id } });
     }),
   }),
@@ -322,6 +329,7 @@ export const appRouter = router({
   file: router({
     list: protectedProcedure.input(fileListSchema).query(async ({ ctx, input }) => {
       await requireRoomAccess(input.dataRoomId, ctx.userId, 'viewer');
+      await purgeExpiredSoftDeletedFiles(input.dataRoomId);
       return prisma.file.findMany({
         where: {
           dataRoomId: input.dataRoomId,
@@ -412,6 +420,17 @@ export const appRouter = router({
         where: { id: input.id },
         data: { deletedAt: null },
       });
+    }),
+
+    purge: protectedProcedure.input(fileDeleteSchema).mutation(async ({ ctx, input }) => {
+      const file = await prisma.file.findFirst({
+        where: { id: input.id, deletedAt: { not: null } },
+      });
+      if (!file) return { purged: false };
+
+      await requireRoomAccess(file.dataRoomId, ctx.userId, 'editor');
+      await hardDeleteFileRecord(file.id);
+      return { purged: true };
     }),
 
     move: protectedProcedure.input(fileMoveSchema).mutation(async ({ ctx, input }) => {

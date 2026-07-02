@@ -50,5 +50,8 @@
   "filterAll": "All",
   "filterFolders": "Folders",
   "filterFiles": "Files",
-  "filterByType": "Filter by type"
+  "filterByType": "Filter by type",
+  "emptyFilter": "No items match this filter",
+  "emptyFilterDescription": "Try a different filter or clear the selection.",
+  "backToDataRooms": "Back to data rooms"
 }

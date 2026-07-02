@@ -24,5 +24,8 @@
   "cannotMoveIntoSelf": "Cannot move folder into itself",
   "cannotMoveIntoDescendant": "Cannot move folder into its own descendant",
   "forbidden": "You do not have permission to perform this action",
-  "unauthorized": "Please sign in to continue"
+  "unauthorized": "Please sign in to continue",
+  "roomNotFound": "Data room not found",
+  "roomNotFoundDescription": "This room does not exist or you do not have access to it.",
+  "updateFailed": "Failed to update item"
 }

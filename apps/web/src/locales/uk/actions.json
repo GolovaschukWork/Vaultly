@@ -30,5 +30,6 @@
   "enterName": "Введіть назву",
   "dataRoomName": "Назва data room",
   "folderName": "Назва папки",
-  "fileName": "Назва файлу"
+  "fileName": "Назва файлу",
+  "moreActions": "Більше дій"
 }

@@ -11,7 +11,7 @@ import {
   cn,
 } from '@vaultly/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Loader2, Trash2, UserPlus } from 'lucide-react';
+import { Crown, Loader2, Trash2, UserPlus } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
@@ -19,6 +19,7 @@ import { useTrpcToast } from '@/hooks/use-trpc-toast';
 import { toast } from '@/hooks/use-toast';
 import { getTrpcErrorMessage } from '@/lib/trpc-errors';
 import { trpc } from '@/lib/trpc';
+import { useAuth } from '@/providers/auth-provider';
 
 const inviteFormSchema = z.object({
   email: z.string().trim().email('invalidEmail').max(255, 'emailTooLong'),
@@ -26,6 +27,7 @@ const inviteFormSchema = z.object({
 });
 
 type InviteFormValues = z.infer<typeof inviteFormSchema>;
+type MemberRole = 'EDITOR' | 'VIEWER';
 
 interface ShareRoomDialogProps {
   open: boolean;
@@ -40,8 +42,43 @@ function FieldError({ message }: { message?: string }) {
   return <p className="text-danger text-sm">{t(`errors:${message}`)}</p>;
 }
 
+function RolePicker({
+  value,
+  onChange,
+  disabled,
+}: {
+  value: MemberRole;
+  onChange: (role: MemberRole) => void;
+  disabled?: boolean;
+}) {
+  const { t } = useTranslation();
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      {(['VIEWER', 'EDITOR'] as const).map((role) => (
+        <button
+          key={role}
+          type="button"
+          disabled={disabled}
+          className={cn(
+            'border-border rounded-lg border px-3 py-2 text-sm transition-colors',
+            value === role
+              ? 'border-brand-500 bg-brand-500/10 text-brand-600 dark:text-brand-400'
+              : 'text-content-secondary hover:bg-surface-elevated',
+            disabled && 'cursor-not-allowed opacity-60',
+          )}
+          onClick={() => onChange(role)}
+        >
+          {role === 'EDITOR' ? t('sharing:roleEditor') : t('sharing:roleViewer')}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function ShareRoomDialog({ open, onOpenChange, roomId, roomName }: ShareRoomDialogProps) {
   const { t } = useTranslation();
+  const { user } = useAuth();
   const showError = useTrpcToast();
   const utils = trpc.useUtils();
 
@@ -72,6 +109,14 @@ export function ShareRoomDialog({ open, onOpenChange, roomId, roomName }: ShareR
       toast({ title: t('sharing:memberRemoved') });
     },
     onError: (err) => showError('errors:deleteFailed', err),
+  });
+
+  const updateRole = trpc.member.updateRole.useMutation({
+    onSuccess: () => {
+      void utils.member.list.invalidate({ dataRoomId: roomId });
+      toast({ title: t('sharing:roleUpdated') });
+    },
+    onError: (err) => showError('errors:updateFailed', err),
   });
 
   const handleInvite = form.handleSubmit((values) => {
@@ -108,23 +153,7 @@ export function ShareRoomDialog({ open, onOpenChange, roomId, roomName }: ShareR
 
           <div className="space-y-2">
             <Label>{t('sharing:role')}</Label>
-            <div className="grid grid-cols-2 gap-2">
-              {(['VIEWER', 'EDITOR'] as const).map((role) => (
-                <button
-                  key={role}
-                  type="button"
-                  className={cn(
-                    'border-border rounded-lg border px-3 py-2 text-sm transition-colors',
-                    selectedRole === role
-                      ? 'border-brand-500 bg-brand-500/10 text-brand-600 dark:text-brand-400'
-                      : 'text-content-secondary hover:bg-surface-elevated',
-                  )}
-                  onClick={() => form.setValue('role', role)}
-                >
-                  {role === 'EDITOR' ? t('sharing:roleEditor') : t('sharing:roleViewer')}
-                </button>
-              ))}
-            </div>
+            <RolePicker value={selectedRole} onChange={(role) => form.setValue('role', role)} />
           </div>
 
           {form.formState.errors.root?.message && (
@@ -148,37 +177,57 @@ export function ShareRoomDialog({ open, onOpenChange, roomId, roomName }: ShareR
             <div className="flex justify-center py-6">
               <Loader2 className="text-content-muted h-5 w-5 animate-spin" />
             </div>
-          ) : members.length === 0 ? (
-            <p className="text-content-secondary text-sm">{t('sharing:noMembers')}</p>
           ) : (
             <ul className="space-y-2">
-              {members.map((member) => (
-                <li
-                  key={member.id}
-                  className="border-border flex items-center justify-between gap-3 rounded-lg border px-3 py-2"
-                >
+              {user?.email && (
+                <li className="border-border bg-brand-500/5 flex items-center justify-between gap-3 rounded-lg border px-3 py-2">
                   <div className="min-w-0">
-                    <p className="text-content-primary truncate text-sm font-medium">
-                      {member.email}
+                    <p className="text-content-primary flex items-center gap-1.5 truncate text-sm font-medium">
+                      <Crown className="text-brand-600 dark:text-brand-400 h-4 w-4 shrink-0" />
+                      {user.email}
                     </p>
-                    <p className="text-content-muted text-xs">
-                      {member.role === 'EDITOR' ? t('sharing:roleEditor') : t('sharing:roleViewer')}
-                      {member.status === 'PENDING' && ` · ${t('sharing:pending')}`}
-                    </p>
+                    <p className="text-content-muted text-xs">{t('sharing:roleOwner')}</p>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="text-danger hover:text-danger h-8 w-8 shrink-0"
-                    disabled={removeMember.isPending}
-                    onClick={() => removeMember.mutate({ id: member.id })}
-                    aria-label={t('sharing:removeMember')}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
                 </li>
-              ))}
+              )}
+
+              {members.length === 0 ? (
+                <p className="text-content-secondary text-sm">{t('sharing:noMembers')}</p>
+              ) : (
+                members.map((member) => (
+                  <li
+                    key={member.id}
+                    className="border-border flex flex-col gap-3 rounded-lg border px-3 py-2 sm:flex-row sm:items-center sm:justify-between"
+                  >
+                    <div className="min-w-0">
+                      <p className="text-content-primary truncate text-sm font-medium">
+                        {member.email}
+                      </p>
+                      {member.status === 'PENDING' && (
+                        <p className="text-content-muted text-xs">{t('sharing:pending')}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <RolePicker
+                        value={member.role}
+                        onChange={(role) => updateRole.mutate({ id: member.id, role })}
+                        disabled={updateRole.isPending || removeMember.isPending}
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="text-danger hover:text-danger h-8 w-8 shrink-0"
+                        disabled={removeMember.isPending || updateRole.isPending}
+                        onClick={() => removeMember.mutate({ id: member.id })}
+                        aria-label={t('sharing:removeMember')}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </li>
+                ))
+              )}
             </ul>
           )}
         </div>

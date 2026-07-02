@@ -1,5 +1,5 @@
 import { Button, Sheet, SheetContent, SheetHeader, SheetTitle } from '@vaultly/ui';
-import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Download, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { useTranslation } from 'react-i18next';
@@ -77,11 +77,37 @@ export function PDFViewer() {
 
   const showError = isError || !preview?.url;
 
+  const handleDownload = () => {
+    if (!preview?.url) return;
+    const link = document.createElement('a');
+    link.href = preview.url;
+    link.download = previewFile.name;
+    link.rel = 'noopener';
+    link.target = '_blank';
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   return (
     <Sheet open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
       <SheetContent side="right" className="flex h-full w-full flex-col p-0 sm:max-w-2xl">
         <SheetHeader className="border-border shrink-0 border-b px-6 py-4">
-          <SheetTitle className="truncate pr-8">{previewFile.name}</SheetTitle>
+          <div className="flex items-start justify-between gap-3 pr-8">
+            <SheetTitle className="min-w-0 truncate text-left">{previewFile.name}</SheetTitle>
+            {preview?.url && !showError && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="shrink-0"
+                onClick={handleDownload}
+              >
+                <Download className="h-4 w-4" />
+                {t('actions:download')}
+              </Button>
+            )}
+          </div>
         </SheetHeader>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">

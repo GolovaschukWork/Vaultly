@@ -50,5 +50,8 @@
   "filterAll": "Усі",
   "filterFolders": "Папки",
   "filterFiles": "Файли",
-  "filterByType": "Фільтр за типом"
+  "filterByType": "Фільтр за типом",
+  "emptyFilter": "Немає елементів для цього фільтра",
+  "emptyFilterDescription": "Спробуйте інший фільтр або скиньте вибір.",
+  "backToDataRooms": "Назад до data rooms"
 }
