@@ -10,7 +10,7 @@ services:
     runtime: node
     plan: free
     region: frankfurt
-    buildCommand: npm install && npm run db:generate && npx turbo run build --filter=@vaultly/api
+    buildCommand: npm install --include=dev && npm run db:generate && npx turbo run build --filter=@vaultly/api
     startCommand: node apps/api/dist/main.js
     healthCheckPath: /health
     envVars:

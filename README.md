@@ -304,12 +304,12 @@ flowchart LR
 
 **Option B — Manual Web Service**
 
-| Setting           | Value                                                                             |
-| ----------------- | --------------------------------------------------------------------------------- |
-| Root directory    | _(repo root)_                                                                     |
-| Build command     | `npm install && npm run db:generate && npx turbo run build --filter=@vaultly/api` |
-| Start command     | `node apps/api/dist/main.js`                                                      |
-| Health check path | `/health`                                                                         |
+| Setting           | Value                                                                                           |
+| ----------------- | ----------------------------------------------------------------------------------------------- |
+| Root directory    | _(repo root)_                                                                                   |
+| Build command     | `npm install --include=dev && npm run db:generate && npx turbo run build --filter=@vaultly/api` |
+| Start command     | `node apps/api/dist/main.js`                                                                    |
+| Health check path | `/health`                                                                                       |
 
 **Environment variables** (same as local `apps/api/.env`):
 
