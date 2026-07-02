@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import ws from 'ws';
 
 const BUCKET = process.env.SUPABASE_STORAGE_BUCKET ?? 'vaultly-files';
 
@@ -15,6 +16,9 @@ function getAdminClient(): SupabaseClient {
   if (!adminClient) {
     adminClient = createClient(url, serviceRoleKey, {
       auth: { persistSession: false, autoRefreshToken: false },
+      realtime: {
+        transport: ws as unknown as typeof WebSocket,
+      },
     });
   }
 
