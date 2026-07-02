@@ -9,9 +9,8 @@ import {
 } from '@dnd-kit/core';
 import { snapCenterToCursor } from '@dnd-kit/modifiers';
 import { useState } from 'react';
-import { useTranslation } from 'react-i18next';
 import { DragPreview } from '@/components/drag-preview';
-import { toast } from '@/hooks/use-toast';
+import { useTrpcToast } from '@/hooks/use-trpc-toast';
 import { invalidateRoomActivity } from '@/lib/room-cache';
 import { trpc } from '@/lib/trpc';
 
@@ -27,7 +26,7 @@ interface RoomDndProviderProps {
 }
 
 export function RoomDndProvider({ roomId, children }: RoomDndProviderProps) {
-  const { t } = useTranslation();
+  const showError = useTrpcToast();
   const [activeItem, setActiveItem] = useState<ActiveDragItem | null>(null);
   const utils = trpc.useUtils();
 
@@ -37,8 +36,7 @@ export function RoomDndProvider({ roomId, children }: RoomDndProviderProps) {
       void utils.folder.list.invalidate();
       invalidateRoomActivity(utils, roomId);
     },
-    onError: (err) =>
-      toast({ title: t('errors:moveFailed'), description: err.message, variant: 'destructive' }),
+    onError: (err) => showError('errors:moveFailed', err),
   });
 
   const moveFile = trpc.file.move.useMutation({
@@ -46,8 +44,7 @@ export function RoomDndProvider({ roomId, children }: RoomDndProviderProps) {
       void utils.file.list.invalidate();
       invalidateRoomActivity(utils, roomId);
     },
-    onError: (err) =>
-      toast({ title: t('errors:moveFailed'), description: err.message, variant: 'destructive' }),
+    onError: (err) => showError('errors:moveFailed', err),
   });
 
   const sensors = useSensors(

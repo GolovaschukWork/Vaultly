@@ -3,7 +3,8 @@ import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { useTranslation } from 'react-i18next';
-import { getBlob } from '@/lib/dexie';
+import { getTrpcErrorMessage } from '@/lib/trpc-errors';
+import { trpc } from '@/lib/trpc';
 import { useUIStore } from '@/stores/ui-store';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
@@ -45,47 +46,36 @@ export function PDFViewer() {
   const { t } = useTranslation();
   const { previewFile, setPreviewFile } = useUIStore();
   const { containerRef, width } = useElementWidth();
-  const [blob, setBlob] = useState<Blob | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const {
+    data: preview,
+    isLoading,
+    isError,
+    error,
+  } = trpc.file.getPreviewUrl.useQuery(
+    { id: previewFile?.id ?? '' },
+    { enabled: !!previewFile, retry: 1 },
+  );
 
   useEffect(() => {
     if (!previewFile) {
-      setBlob(null);
-      return;
+      setErrorMessage(null);
+      setPageNumber(1);
+      setNumPages(0);
     }
-
-    let cancelled = false;
-    setLoading(true);
-    setError(false);
-    setPageNumber(1);
-    setNumPages(0);
-
-    void getBlob(previewFile.storageKey)
-      .then((record) => {
-        if (cancelled) return;
-        if (!record) {
-          setBlob(null);
-          setError(true);
-          return;
-        }
-        setBlob(record);
-      })
-      .catch(() => {
-        if (!cancelled) setError(true);
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
   }, [previewFile]);
 
+  useEffect(() => {
+    if (!isError) return;
+    setErrorMessage(getTrpcErrorMessage(error, t));
+  }, [isError, error, t]);
+
   if (!previewFile) return null;
+
+  const showError = isError || !preview?.url;
 
   return (
     <Sheet open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
@@ -95,26 +85,26 @@ export function PDFViewer() {
         </SheetHeader>
 
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-          {loading && (
+          {isLoading && (
             <div className="flex flex-1 items-center justify-center">
               <Loader2 className="text-content-muted h-8 w-8 animate-spin" />
             </div>
           )}
 
-          {error && (
-            <div className="text-content-secondary flex flex-1 items-center justify-center px-6 text-center">
-              {t('errors:previewFailed')}
+          {showError && !isLoading && (
+            <div className="text-content-secondary flex flex-1 items-center justify-center px-6 text-center text-sm">
+              {errorMessage ?? t('errors:previewFailed')}
             </div>
           )}
 
-          {blob && !loading && !error && (
+          {preview?.url && !isLoading && !showError && (
             <>
               <div
                 ref={containerRef}
                 className="bg-surface-elevated flex flex-1 justify-center overflow-auto p-4"
               >
                 <Document
-                  file={blob}
+                  file={preview.url}
                   onLoadSuccess={({ numPages: pages }) => setNumPages(pages)}
                   loading={
                     <div className="flex h-64 items-center justify-center">

@@ -10,7 +10,7 @@ A full-stack Data Room application (Google Drive analog) built with React, NestJ
 - TanStack Router, Query, Table
 - Tailwind CSS v4 + shadcn/ui (Radix)
 - Zustand (UI state)
-- Dexie (IndexedDB for PDF blobs)
+- Supabase Storage (PDF blobs)
 - react-pdf (in-app PDF viewer)
 - i18next (EN + UK localization)
 - next-themes (dark/light mode)
@@ -58,40 +58,41 @@ vaultly/
 ### Data Storage Strategy
 
 - **Metadata** (rooms, folders, files, activity) → Supabase PostgreSQL via Prisma
-- **PDF blobs** → IndexedDB via Dexie (persists across page reloads)
+- **PDF blobs** → Supabase Storage (`vaultly-files` bucket, private per-user paths)
 - **Auth** → Supabase Auth (JWT verified on API)
 
 ### Per-user isolation
 
 - Each `DataRoom` belongs to a Supabase user (`userId`)
 - All tRPC procedures require a valid JWT (`Authorization: Bearer <token>`)
-- Users only see and modify their own data rooms and contents
+- Storage paths use `{userId}/{uuid}.pdf` with RLS policies (see `packages/db/supabase/storage-setup.sql`)
 
 ### Auth flow
 
-1. User signs in on `/login` via Supabase Auth (browser)
+1. User signs in on `/login` via Supabase Auth (email/password or Google OAuth)
 2. Web attaches JWT to every tRPC request
-3. API verifies JWT with `SUPABASE_JWT_SECRET` and reads `sub` as `userId`
+3. API verifies JWT via JWKS (`SUPABASE_URL`) with HS256 fallback
 4. All queries filter by `userId` on the owning data room
 
 ### File Upload Flow
 
-1. User selects/drops PDF → stored in IndexedDB (Dexie)
-2. Metadata sent to API via tRPC `file.create`
+1. User selects/drops PDF → uploaded to Supabase Storage
+2. Metadata sent to API via tRPC `file.create` with `storageKey`
 3. TanStack Query invalidates file list
+4. PDF preview downloads blob from Storage
 
 ### Soft Delete + Undo
 
 1. Delete sets `deletedAt` timestamp in DB
 2. Toast shows 10-second undo button
 3. On undo → `restore` tRPC call clears `deletedAt`
-4. After 10s → PDF blob purged from IndexedDB
+4. After 10s → PDF blob purged from Storage
 
 ## Prerequisites
 
 - Node.js >= 20
 - npm >= 10
-- Supabase project (or local PostgreSQL)
+- Supabase project (PostgreSQL + Auth + Storage)
 
 ## Setup
 
@@ -101,9 +102,12 @@ vaultly/
 git clone <repo-url>
 cd vaultly
 npm install
+npm run setup
 ```
 
-### 2. Configure database
+`npm run setup` copies `.env.example` files if they are missing.
+
+### 2. Configure Supabase
 
 Copy environment files and set your Supabase connection strings:
 
@@ -114,7 +118,15 @@ cp apps/api/.env.example apps/api/.env
 
 Update `DATABASE_URL` and `DIRECT_URL` in both files with your Supabase credentials.
 
-### 3. Configure Supabase Auth
+### 3. Configure Supabase Storage
+
+Bucket `vaultly-files` must exist (private). Then run in **SQL Editor**:
+
+```bash
+# paste contents of packages/db/supabase/storage-setup.sql
+```
+
+### 4. Configure Supabase Auth
 
 In the [Supabase Dashboard](https://supabase.com/dashboard):
 
@@ -128,7 +140,12 @@ In the [Supabase Dashboard](https://supabase.com/dashboard):
 cp apps/web/.env.example apps/web/.env
 ```
 
-Update `apps/api/.env` with `SUPABASE_JWT_SECRET`.
+### 5. Push database schema
+
+```bash
+npm run db:generate
+npm run db:push
+```
 
 #### Google OAuth (optional)
 
@@ -139,14 +156,7 @@ Update `apps/api/.env` with `SUPABASE_JWT_SECRET`.
 
 > **Migrating existing data:** adding `userId` to `DataRoom` requires a schema push. If you have rooms created before auth, delete them in Supabase SQL editor (`DELETE FROM "DataRoom";`) before running `db:push`, then create new rooms after signing in.
 
-### 4. Push database schema
-
-```bash
-npm run db:generate
-npm run db:push
-```
-
-### 5. Start development
+### 6. Start development
 
 ```bash
 npm run dev
@@ -163,6 +173,7 @@ npm run dev
 | `npm run build`       | Build all packages         |
 | `npm run lint`        | Lint all packages          |
 | `npm run test`        | Run tests                  |
+| `npm run setup`       | Copy `.env.example` files  |
 | `npm run db:generate` | Generate Prisma client     |
 | `npm run db:push`     | Push schema to database    |
 

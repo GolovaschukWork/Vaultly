@@ -113,6 +113,7 @@ export const searchResultSchema = z.object({
   type: z.enum(['file', 'folder']),
   folderId: z.string().nullable(),
   parentId: z.string().nullable(),
+  storageKey: z.string().optional(),
 });
 
 export type SearchResult = z.infer<typeof searchResultSchema>;

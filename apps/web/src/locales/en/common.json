@@ -46,5 +46,9 @@
   "activityUploaded": "uploaded",
   "sidebar": "Sidebar",
   "closeSidebar": "Close sidebar",
-  "openSidebar": "Open sidebar"
+  "openSidebar": "Open sidebar",
+  "filterAll": "All",
+  "filterFolders": "Folders",
+  "filterFiles": "Files",
+  "filterByType": "Filter by type"
 }

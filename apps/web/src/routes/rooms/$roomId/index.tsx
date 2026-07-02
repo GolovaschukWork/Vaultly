@@ -14,12 +14,20 @@ import { SearchBar } from '@/components/search-bar';
 import { TreeSidebar } from '@/components/tree-sidebar';
 import { UploadDropzone } from '@/components/upload-dropzone';
 import { ShareRoomDialog } from '@/components/share-room-dialog';
+import {
+  ExplorerFilter,
+  filterExplorerItems,
+  type ExplorerFilterType,
+} from '@/components/explorer-filter';
 import { toast, TOAST_REMOVE_DELAY, ToastAction } from '@/hooks/use-toast';
+import { useTrpcToast } from '@/hooks/use-trpc-toast';
 import { useRoomAccess } from '@/hooks/use-room-access';
-import { deleteBlob, generateStorageKey, storeBlob } from '@/lib/dexie';
+import { deleteStoredFile, uploadFile } from '@/lib/file-storage';
 import { invalidateRoomActivity } from '@/lib/room-cache';
 import { trpc } from '@/lib/trpc';
+import { getTrpcErrorMessage } from '@/lib/trpc-errors';
 import { ensurePdfExtension, PDF_MIME_TYPE } from '@/lib/utils';
+import { useAuth } from '@/providers/auth-provider';
 import { useUIStore } from '@/stores/ui-store';
 
 export const Route = createFileRoute('/rooms/$roomId/')({
@@ -30,7 +38,11 @@ function RoomPage() {
   const { roomId } = Route.useParams();
   const { t } = useTranslation();
   const { setPreviewFile } = useUIStore();
+  const { user } = useAuth();
+  const showError = useTrpcToast();
   const { canEdit, isOwner } = useRoomAccess(roomId);
+
+  const [explorerFilter, setExplorerFilter] = useState<ExplorerFilterType>('all');
 
   const [shareOpen, setShareOpen] = useState(false);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
@@ -73,6 +85,11 @@ function RoomPage() {
     [folders, files],
   );
 
+  const filteredItems = useMemo(
+    () => filterExplorerItems(items, explorerFilter),
+    [items, explorerFilter],
+  );
+
   const createFolder = trpc.folder.create.useMutation({
     onSuccess: (folder) => {
       void utils.folder.list.invalidate();
@@ -81,8 +98,7 @@ function RoomPage() {
       setCreateFolderOpen(false);
       toast({ title: t('actions:created', { name: folder.name }) });
     },
-    onError: (err) =>
-      toast({ title: t('errors:createFailed'), description: err.message, variant: 'destructive' }),
+    onError: (err) => showError('errors:createFailed', err),
   });
 
   const renameFolder = trpc.folder.rename.useMutation({
@@ -93,8 +109,7 @@ function RoomPage() {
       setRenameTarget(null);
       toast({ title: t('actions:renamed', { name: folder.name }) });
     },
-    onError: (err) =>
-      toast({ title: t('errors:renameFailed'), description: err.message, variant: 'destructive' }),
+    onError: (err) => showError('errors:renameFailed', err),
   });
 
   const renameFile = trpc.file.rename.useMutation({
@@ -104,37 +119,33 @@ function RoomPage() {
       setRenameTarget(null);
       toast({ title: t('actions:renamed', { name: file.name }) });
     },
-    onError: (err) =>
-      toast({ title: t('errors:renameFailed'), description: err.message, variant: 'destructive' }),
+    onError: (err) => showError('errors:renameFailed', err),
   });
 
   const deleteFolder = trpc.folder.delete.useMutation({
-    onError: (err) =>
-      toast({ title: t('errors:deleteFailed'), description: err.message, variant: 'destructive' }),
+    onError: (err) => showError('errors:deleteFailed', err),
   });
 
   const restoreFolder = trpc.folder.restore.useMutation({
-    onError: (err) =>
-      toast({ title: t('errors:restoreFailed'), description: err.message, variant: 'destructive' }),
+    onError: (err) => showError('errors:restoreFailed', err),
   });
 
   const deleteFile = trpc.file.delete.useMutation({
-    onError: (err) =>
-      toast({ title: t('errors:deleteFailed'), description: err.message, variant: 'destructive' }),
+    onError: (err) => showError('errors:deleteFailed', err),
   });
 
   const restoreFile = trpc.file.restore.useMutation({
-    onError: (err) =>
-      toast({ title: t('errors:restoreFailed'), description: err.message, variant: 'destructive' }),
+    onError: (err) => showError('errors:restoreFailed', err),
   });
 
   const createFile = trpc.file.create.useMutation();
 
   const handleUpload = async (uploadFiles: File[]) => {
+    if (!user) return;
+
     for (const file of uploadFiles) {
-      const storageKey = generateStorageKey();
       try {
-        await storeBlob(storageKey, file, file.name, PDF_MIME_TYPE);
+        const storageKey = await uploadFile(user.id, file);
         await createFile.mutateAsync({
           name: ensurePdfExtension(file.name),
           size: file.size,
@@ -147,7 +158,7 @@ function RoomPage() {
       } catch (err) {
         toast({
           title: t('errors:uploadFailed'),
-          description: err instanceof Error ? err.message : undefined,
+          description: getTrpcErrorMessage(err, t),
           variant: 'destructive',
         });
       }
@@ -215,7 +226,7 @@ function RoomPage() {
           void utils.file.list.invalidate();
           invalidateRoomActivity(utils, roomId);
           const blobPurgeTimer = window.setTimeout(
-            () => void deleteBlob(target.storageKey),
+            () => void deleteStoredFile(target.storageKey),
             TOAST_REMOVE_DELAY,
           );
           toast({
@@ -285,17 +296,22 @@ function RoomPage() {
         {isEmpty ? (
           <EmptyState variant="room" />
         ) : (
-          <FileExplorer
-            roomId={roomId}
-            items={items}
-            isLoading={isLoading}
-            canEdit={canEdit}
-            onRename={setRenameTarget}
-            onDelete={setDeleteTarget}
-            onPreview={(item) =>
-              setPreviewFile({ id: item.id, name: item.name, storageKey: item.storageKey })
-            }
-          />
+          <>
+            <div className="mb-4">
+              <ExplorerFilter value={explorerFilter} onChange={setExplorerFilter} />
+            </div>
+            <FileExplorer
+              roomId={roomId}
+              items={filteredItems}
+              isLoading={isLoading}
+              canEdit={canEdit}
+              onRename={setRenameTarget}
+              onDelete={setDeleteTarget}
+              onPreview={(item) =>
+                setPreviewFile({ id: item.id, name: item.name, storageKey: item.storageKey })
+              }
+            />
+          </>
         )}
       </AppShell>
 

@@ -4,6 +4,16 @@ import { useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from '@tanstack/react-router';
 import { trpc } from '@/lib/trpc';
+import { useUIStore } from '@/stores/ui-store';
+
+type SearchResult = {
+  id: string;
+  name: string;
+  type: 'file' | 'folder';
+  folderId: string | null;
+  parentId: string | null;
+  storageKey?: string;
+};
 
 interface SearchBarProps {
   roomId: string;
@@ -13,6 +23,7 @@ interface SearchBarProps {
 export function SearchBar({ roomId, className }: SearchBarProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const setPreviewFile = useUIStore((state) => state.setPreviewFile);
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
   const [open, setOpen] = useState(false);
@@ -38,13 +49,34 @@ export function SearchBar({ roomId, className }: SearchBarProps) {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  const handleSelect = (result: { id: string; type: 'file' | 'folder'; name: string }) => {
+  const handleSelect = (result: SearchResult) => {
     setOpen(false);
     setQuery('');
+
     if (result.type === 'folder') {
-      void navigate({ to: '/rooms/$roomId/f/$folderId', params: { roomId, folderId: result.id } });
+      void navigate({
+        to: '/rooms/$roomId/f/$folderId',
+        params: { roomId, folderId: result.id },
+      });
+      return;
+    }
+
+    const parentFolderId = result.folderId ?? result.parentId;
+    if (parentFolderId) {
+      void navigate({
+        to: '/rooms/$roomId/f/$folderId',
+        params: { roomId, folderId: parentFolderId },
+      });
     } else {
       void navigate({ to: '/rooms/$roomId', params: { roomId } });
+    }
+
+    if (result.storageKey) {
+      setPreviewFile({
+        id: result.id,
+        name: result.name,
+        storageKey: result.storageKey,
+      });
     }
   };
 

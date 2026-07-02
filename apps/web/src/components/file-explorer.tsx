@@ -12,10 +12,24 @@ import {
   createColumnHelper,
   flexRender,
   getCoreRowModel,
+  getSortedRowModel,
+  type Column,
+  type SortingState,
   useReactTable,
 } from '@tanstack/react-table';
-import { Eye, FileText, Folder, GripVertical, MoreHorizontal, Pencil, Trash2 } from 'lucide-react';
-import { useMemo } from 'react';
+import {
+  ArrowDown,
+  ArrowUp,
+  ArrowUpDown,
+  Eye,
+  FileText,
+  Folder,
+  GripVertical,
+  MoreHorizontal,
+  Pencil,
+  Trash2,
+} from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
 import { formatDate, formatFileSize } from '@/lib/utils';
@@ -44,6 +58,39 @@ interface FileExplorerProps {
   onPreview?: (item: Extract<ExplorerItem, { type: 'file' }>) => void;
   isLoading?: boolean;
   canEdit?: boolean;
+}
+
+function SortableHeader({
+  column,
+  label,
+  className,
+}: {
+  column: Column<ExplorerItem, unknown>;
+  label: string;
+  className?: string;
+}) {
+  const sorted = column.getIsSorted();
+
+  return (
+    <button
+      type="button"
+      className={cn(
+        'hover:text-content-primary inline-flex items-center gap-1 transition-colors',
+        sorted && 'text-content-primary',
+        className,
+      )}
+      onClick={() => column.toggleSorting(sorted === 'asc')}
+    >
+      <span>{label}</span>
+      {sorted === 'asc' ? (
+        <ArrowUp className="h-3.5 w-3.5" aria-hidden="true" />
+      ) : sorted === 'desc' ? (
+        <ArrowDown className="h-3.5 w-3.5" aria-hidden="true" />
+      ) : (
+        <ArrowUpDown className="h-3.5 w-3.5 opacity-50" aria-hidden="true" />
+      )}
+    </button>
+  );
 }
 
 function ItemActions({
@@ -225,6 +272,7 @@ export function FileExplorer({
   canEdit = true,
 }: FileExplorerProps) {
   const { t } = useTranslation();
+  const [sorting, setSorting] = useState<SortingState>([{ id: 'name', desc: false }]);
   const columnHelper = createColumnHelper<ExplorerItem>();
 
   const columns = useMemo(
@@ -233,9 +281,10 @@ export function FileExplorer({
         id: 'drag',
         header: '',
         cell: () => null,
+        enableSorting: false,
       }),
       columnHelper.accessor('name', {
-        header: t('common:name'),
+        header: ({ column }) => <SortableHeader column={column} label={t('common:name')} />,
         cell: (info) => {
           const item = info.row.original;
           if (item.type === 'folder') {
@@ -262,9 +311,34 @@ export function FileExplorer({
           );
         },
       }),
-      columnHelper.display({
+      columnHelper.accessor('type', {
+        header: ({ column }) => (
+          <SortableHeader
+            column={column}
+            label={t('common:type')}
+            className="hidden md:inline-flex"
+          />
+        ),
+        cell: (info) => (
+          <span className="text-content-secondary hidden whitespace-nowrap capitalize md:inline">
+            {info.getValue() === 'folder' ? t('common:folder') : t('common:file')}
+          </span>
+        ),
+      }),
+      columnHelper.accessor((row) => (row.type === 'file' ? row.size : -1), {
         id: 'size',
-        header: t('common:size'),
+        header: ({ column }) => (
+          <SortableHeader
+            column={column}
+            label={t('common:size')}
+            className="hidden md:inline-flex"
+          />
+        ),
+        sortingFn: (rowA, rowB) => {
+          const sizeA = rowA.original.type === 'file' ? rowA.original.size : -1;
+          const sizeB = rowB.original.type === 'file' ? rowB.original.size : -1;
+          return sizeA - sizeB;
+        },
         cell: (info) => {
           const item = info.row.original;
           return (
@@ -275,7 +349,18 @@ export function FileExplorer({
         },
       }),
       columnHelper.accessor('updatedAt', {
-        header: t('common:modified'),
+        header: ({ column }) => (
+          <SortableHeader
+            column={column}
+            label={t('common:modified')}
+            className="hidden lg:inline-flex"
+          />
+        ),
+        sortingFn: (rowA, rowB) => {
+          const dateA = new Date(rowA.original.updatedAt).getTime();
+          const dateB = new Date(rowB.original.updatedAt).getTime();
+          return dateA - dateB;
+        },
         cell: (info) => (
           <span className="text-content-secondary hidden whitespace-nowrap lg:inline">
             {formatDate(info.getValue())}
@@ -294,6 +379,7 @@ export function FileExplorer({
             canEdit={canEdit}
           />
         ),
+        enableSorting: false,
       }),
     ],
     [columnHelper, roomId, onRename, onDelete, onPreview, canEdit, t],
@@ -302,8 +388,13 @@ export function FileExplorer({
   const table = useReactTable({
     data: items,
     columns,
+    state: { sorting },
+    onSortingChange: setSorting,
     getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
   });
+
+  const sortedItems = table.getRowModel().rows.map((row) => row.original);
 
   if (isLoading) {
     return (
@@ -319,7 +410,7 @@ export function FileExplorer({
     <>
       {/* Mobile card list */}
       <div className="space-y-2 md:hidden">
-        {items.map((item) => (
+        {sortedItems.map((item) => (
           <MobileItemCard
             key={`${item.type}-${item.id}`}
             item={item}
@@ -339,25 +430,26 @@ export function FileExplorer({
             {table.getHeaderGroups().map((headerGroup) => (
               <tr key={headerGroup.id} className="border-border bg-surface-elevated border-b">
                 {headerGroup.headers.map((header) => {
-                  if (header.id === 'drag') {
-                    return <th key={header.id} className="hidden w-8 px-2 md:table-cell" />;
-                  }
-                  if (header.id === 'size') {
+                  if (header.id === 'drag' || header.id === 'actions') {
                     return (
                       <th
                         key={header.id}
-                        className="text-content-muted hidden px-4 py-3 text-left text-xs font-medium tracking-wider uppercase md:table-cell"
-                      >
-                        {flexRender(header.column.columnDef.header, header.getContext())}
-                      </th>
+                        className={cn(
+                          'text-content-muted px-4 py-3 text-left text-xs font-medium tracking-wider uppercase',
+                          header.id === 'drag' && 'hidden w-8 px-2 md:table-cell',
+                          header.id === 'actions' && 'w-12',
+                        )}
+                      />
                     );
                   }
+
                   return (
                     <th
                       key={header.id}
                       className={cn(
                         'text-content-muted px-4 py-3 text-left text-xs font-medium tracking-wider uppercase',
-                        header.id === 'actions' && 'w-12',
+                        header.id === 'type' && 'hidden md:table-cell',
+                        header.id === 'size' && 'hidden md:table-cell',
                         header.id === 'updatedAt' && 'hidden lg:table-cell',
                       )}
                     >
@@ -375,6 +467,13 @@ export function FileExplorer({
               <DraggableRow key={row.id} item={row.original} canEdit={canEdit}>
                 {row.getVisibleCells().map((cell) => {
                   if (cell.column.id === 'drag') return null;
+                  if (cell.column.id === 'type') {
+                    return (
+                      <td key={cell.id} className="hidden px-4 py-3 md:table-cell">
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </td>
+                    );
+                  }
                   if (cell.column.id === 'size') {
                     return (
                       <td key={cell.id} className="hidden px-4 py-3 md:table-cell">

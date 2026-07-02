@@ -29,6 +29,7 @@ import {
   requireRoomAccess,
   requireRoomOwner,
 } from './access';
+import { createSignedStorageUrl } from '../lib/supabase-storage';
 import { ensureInvitesActivated, memberRouter } from './member.router';
 
 async function logActivity(
@@ -331,6 +332,23 @@ export const appRouter = router({
       });
     }),
 
+    getPreviewUrl: protectedProcedure.input(fileDeleteSchema).query(async ({ ctx, input }) => {
+      const file = await getAccessibleFile(input.id, ctx.userId, 'viewer');
+
+      if (!file.storageKey.includes('/')) {
+        throw createBadRequestError(
+          'This file was uploaded before cloud storage. Please delete and upload it again.',
+        );
+      }
+
+      const url = await createSignedStorageUrl(file.storageKey);
+      if (!url) {
+        throw createNotFoundError('PDF file not found in storage');
+      }
+
+      return { url };
+    }),
+
     create: protectedProcedure.input(fileCreateSchema).mutation(async ({ ctx, input }) => {
       await requireRoomAccess(input.dataRoomId, ctx.userId, 'editor');
       const folderId = input.folderId ?? null;
@@ -470,6 +488,7 @@ export const appRouter = router({
           type: 'file' as const,
           folderId: f.folderId,
           parentId: f.folderId,
+          storageKey: f.storageKey,
         })),
       ];
     }),

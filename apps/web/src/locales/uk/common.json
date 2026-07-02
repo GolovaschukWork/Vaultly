@@ -46,5 +46,9 @@
   "activityUploaded": "завантажено",
   "sidebar": "Бічна панель",
   "closeSidebar": "Закрити бічну панель",
-  "openSidebar": "Відкрити бічну панель"
+  "openSidebar": "Відкрити бічну панель",
+  "filterAll": "Усі",
+  "filterFolders": "Папки",
+  "filterFiles": "Файли",
+  "filterByType": "Фільтр за типом"
 }

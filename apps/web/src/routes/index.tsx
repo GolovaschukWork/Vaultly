@@ -8,6 +8,7 @@ import { CreateDataRoomDialog, DeleteConfirmDialog } from '@/components/dialogs'
 import { EmptyState } from '@/components/empty-state';
 import { ShareRoomDialog } from '@/components/share-room-dialog';
 import { toast } from '@/hooks/use-toast';
+import { useTrpcToast } from '@/hooks/use-trpc-toast';
 import { trpc } from '@/lib/trpc';
 import { formatDate } from '@/lib/utils';
 import { useAuth } from '@/providers/auth-provider';
@@ -23,6 +24,7 @@ function DataRoomsPage() {
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
 
   const { session } = useAuth();
+  const showError = useTrpcToast();
   const utils = trpc.useUtils();
   const {
     data: rooms = [],
@@ -39,8 +41,7 @@ function DataRoomsPage() {
       setCreateOpen(false);
       toast({ title: t('actions:created', { name: room.name }) });
     },
-    onError: (err) =>
-      toast({ title: t('errors:createFailed'), description: err.message, variant: 'destructive' }),
+    onError: (err) => showError('errors:createFailed', err),
   });
 
   const deleteRoom = trpc.dataRoom.delete.useMutation({
@@ -48,8 +49,7 @@ function DataRoomsPage() {
       void utils.dataRoom.list.invalidate();
       setDeleteTarget(null);
     },
-    onError: (err) =>
-      toast({ title: t('errors:deleteFailed'), description: err.message, variant: 'destructive' }),
+    onError: (err) => showError('errors:deleteFailed', err),
   });
 
   return (

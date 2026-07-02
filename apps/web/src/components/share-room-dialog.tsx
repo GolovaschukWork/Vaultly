@@ -15,7 +15,9 @@ import { Loader2, Trash2, UserPlus } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
+import { useTrpcToast } from '@/hooks/use-trpc-toast';
 import { toast } from '@/hooks/use-toast';
+import { getTrpcErrorMessage } from '@/lib/trpc-errors';
 import { trpc } from '@/lib/trpc';
 
 const inviteFormSchema = z.object({
@@ -40,6 +42,7 @@ function FieldError({ message }: { message?: string }) {
 
 export function ShareRoomDialog({ open, onOpenChange, roomId, roomName }: ShareRoomDialogProps) {
   const { t } = useTranslation();
+  const showError = useTrpcToast();
   const utils = trpc.useUtils();
 
   const { data: members = [], isLoading } = trpc.member.list.useQuery(
@@ -59,7 +62,7 @@ export function ShareRoomDialog({ open, onOpenChange, roomId, roomName }: ShareR
       toast({ title: t('sharing:inviteSent') });
     },
     onError: (err) => {
-      form.setError('root', { message: err.message });
+      form.setError('root', { message: getTrpcErrorMessage(err, t) });
     },
   });
 
@@ -68,8 +71,7 @@ export function ShareRoomDialog({ open, onOpenChange, roomId, roomName }: ShareR
       void utils.member.list.invalidate({ dataRoomId: roomId });
       toast({ title: t('sharing:memberRemoved') });
     },
-    onError: (err) =>
-      toast({ title: t('errors:deleteFailed'), description: err.message, variant: 'destructive' }),
+    onError: (err) => showError('errors:deleteFailed', err),
   });
 
   const handleInvite = form.handleSubmit((values) => {
