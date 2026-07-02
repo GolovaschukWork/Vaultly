@@ -1,0 +1,75 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+model DataRoom {
+  id         String     @id @default(cuid())
+  name       String
+  createdAt  DateTime   @default(now())
+  updatedAt  DateTime   @updatedAt
+  folders    Folder[]
+  files      File[]
+  activities Activity[]
+}
+
+model Folder {
+  id         String    @id @default(cuid())
+  name       String
+  dataRoomId String
+  dataRoom   DataRoom  @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+  parentId   String?
+  parent     Folder?   @relation("FolderTree", fields: [parentId], references: [id])
+  children   Folder[]  @relation("FolderTree")
+  files      File[]
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  @@index([dataRoomId, parentId])
+  @@index([deletedAt])
+}
+
+model File {
+  id         String    @id @default(cuid())
+  name       String
+  size       Int
+  mimeType   String
+  dataRoomId String
+  dataRoom   DataRoom  @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+  folderId   String?
+  folder     Folder?   @relation(fields: [folderId], references: [id])
+  storageKey String    @unique
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  deletedAt  DateTime?
+
+  @@index([dataRoomId, folderId])
+  @@index([deletedAt])
+}
+
+model Activity {
+  id         String       @id @default(cuid())
+  type       ActivityType
+  entityType String
+  entityId   String
+  entityName String
+  dataRoomId String
+  dataRoom   DataRoom     @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+  createdAt  DateTime     @default(now())
+
+  @@index([dataRoomId, createdAt])
+}
+
+enum ActivityType {
+  CREATED
+  RENAMED
+  DELETED
+  MOVED
+  UPLOADED
+}

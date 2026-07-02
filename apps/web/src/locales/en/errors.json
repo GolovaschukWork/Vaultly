@@ -1,0 +1,17 @@
+{
+  "nameRequired": "Name is required",
+  "nameTooLong": "Name must be at most 255 characters",
+  "nameConflict": "An item with this name already exists",
+  "notFound": "Resource not found",
+  "uploadFailed": "Failed to upload file",
+  "onlyPdf": "Only PDF files are allowed",
+  "fileTooLarge": "File size must be less than 50 MB",
+  "loadFailed": "Failed to load data",
+  "deleteFailed": "Failed to delete item",
+  "renameFailed": "Failed to rename item",
+  "createFailed": "Failed to create item",
+  "previewFailed": "Failed to load PDF preview",
+  "moveFailed": "Failed to move item",
+  "cannotMoveIntoSelf": "Cannot move folder into itself",
+  "cannotMoveIntoDescendant": "Cannot move folder into its own descendant"
+}
