@@ -28,7 +28,7 @@ A full-stack Data Room application (Google Drive analog) built with React, NestJ
 
 ## Features
 
-- **Auth** — Supabase email/password login, per-user data rooms
+- **Auth** — Supabase email/password and Google OAuth login, per-user data rooms
 - **Room sharing** — invite members by email with Editor or Viewer roles
 - **Folders** — nested folders with rename, delete (cascade), move
 - **Files** — PDF upload, preview, rename, delete with undo
@@ -119,14 +119,23 @@ Update `DATABASE_URL` and `DIRECT_URL` in both files with your Supabase credenti
 In the [Supabase Dashboard](https://supabase.com/dashboard):
 
 1. Enable **Email** provider under Authentication → Providers
-2. Copy **Project URL** and **anon public** key → `apps/web/.env`
-3. Copy **JWT Secret** (Project Settings → API) → `apps/api/.env` as `SUPABASE_JWT_SECRET`
+2. (Optional) Enable **Google** provider — see [Google OAuth setup](#google-oauth-optional) below
+3. Under Authentication → URL Configuration, set **Site URL** to `http://localhost:5173` and add `http://localhost:5173/**` to **Redirect URLs**
+4. Copy **Project URL** and **anon public** key → `apps/web/.env`
+5. Copy **JWT Secret** (Project Settings → API) → `apps/api/.env` as `SUPABASE_JWT_SECRET`
 
 ```bash
 cp apps/web/.env.example apps/web/.env
 ```
 
 Update `apps/api/.env` with `SUPABASE_JWT_SECRET`.
+
+#### Google OAuth (optional)
+
+1. In [Google Cloud Console](https://console.cloud.google.com/), create an OAuth 2.0 **Web application** client
+2. Add authorized JavaScript origins: `http://localhost:5173` (and your production URL)
+3. Add authorized redirect URI from Supabase: **Authentication → Providers → Google** shows the callback URL (e.g. `https://<project-ref>.supabase.co/auth/v1/callback`)
+4. Paste the Google **Client ID** and **Client Secret** into the Supabase Google provider settings and enable the provider
 
 > **Migrating existing data:** adding `userId` to `DataRoom` requires a schema push. If you have rooms created before auth, delete them in Supabase SQL editor (`DELETE FROM "DataRoom";`) before running `db:push`, then create new rooms after signing in.
 

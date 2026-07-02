@@ -11,5 +11,18 @@ const AUTH_ERROR_KEYS: Record<string, string> = {
 };
 
 export function getAuthErrorKey(message: string): string | null {
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes('provider is not enabled') ||
+    normalized.includes('unsupported provider')
+  ) {
+    return 'googleProviderDisabled';
+  }
+
+  if (normalized.includes('unable to exchange external code')) {
+    return 'oauthCodeExchangeFailed';
+  }
+
   return AUTH_ERROR_KEYS[message] ?? null;
 }
