@@ -70,9 +70,9 @@ export function UploadDropzone({ onUpload, isUploading, className }: UploadDropz
   return (
     <div
       className={cn(
-        'relative rounded-lg border-2 border-dashed p-6 text-center transition-colors',
+        'relative rounded-lg border-2 border-dashed p-6 text-center transition-all duration-200',
         isDragging
-          ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/30'
+          ? 'border-brand-500 bg-brand-50 dark:bg-brand-950/30 scale-[1.01] shadow-md'
           : 'border-border hover:border-border-strong',
         className,
       )}
@@ -92,7 +92,12 @@ export function UploadDropzone({ onUpload, isUploading, className }: UploadDropz
         }}
       />
 
-      <Upload className="text-content-muted mx-auto mb-3 h-8 w-8" />
+      <Upload
+        className={cn(
+          'text-content-muted mx-auto mb-3 h-8 w-8 transition-transform duration-200',
+          isDragging && 'text-brand-500 scale-110',
+        )}
+      />
       <p className="text-content-primary mb-1 text-sm font-medium">{t('common:dropFilesHere')}</p>
       <p className="text-content-muted mb-3 text-xs">{t('common:orClickToBrowse')}</p>
       <p className="text-content-muted mb-4 text-xs">{t('common:maxFileSize')}</p>

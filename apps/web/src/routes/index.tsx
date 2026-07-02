@@ -11,6 +11,7 @@ import { toast } from '@/hooks/use-toast';
 import { useTrpcToast } from '@/hooks/use-trpc-toast';
 import { trpc } from '@/lib/trpc';
 import { formatDate } from '@/lib/utils';
+import { getStaggerStyle } from '@/lib/motion';
 import { useAuth } from '@/providers/auth-provider';
 
 export const Route = createFileRoute('/')({
@@ -99,13 +100,14 @@ function DataRoomsPage() {
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {rooms.map((room) => {
+            {rooms.map((room, index) => {
               const isOwner = room.accessRole === 'owner';
 
               return (
                 <Card
                   key={room.id}
-                  className="group relative overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                  className="animate-fade-in-up group relative overflow-hidden transition-all hover:-translate-y-0.5 hover:shadow-lg"
+                  style={getStaggerStyle(index)}
                 >
                   <div className="from-brand-500/5 absolute inset-x-0 top-0 h-1 bg-gradient-to-r to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
                   <CardHeader className="pb-2">

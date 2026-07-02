@@ -1,7 +1,7 @@
 import { Button, cn } from '@vaultly/ui';
 import { LogOut, Menu, PanelLeftClose, PanelLeftOpen, Vault } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import { Link } from '@tanstack/react-router';
+import { Link, useLocation } from '@tanstack/react-router';
 import { LanguageSwitcher } from './language-switcher';
 import { ThemeToggle } from './theme-toggle';
 import { useUIStore } from '@/stores/ui-store';
@@ -18,6 +18,7 @@ export function AppShell({ children, sidebar, activityPanel, header }: AppShellP
   const { t } = useTranslation();
   const { user, signOut } = useAuth();
   const { sidebarOpen, toggleSidebar, setSidebarOpen } = useUIStore();
+  const location = useLocation();
 
   return (
     <div className="app-gradient bg-surface flex min-h-screen flex-col">
@@ -79,7 +80,7 @@ export function AppShell({ children, sidebar, activityPanel, header }: AppShellP
           <>
             <aside
               className={cn(
-                'border-border bg-surface/95 fixed inset-y-0 top-14 left-0 z-30 w-64 border-r backdrop-blur-sm transition-transform lg:static lg:translate-x-0',
+                'border-border bg-surface/95 fixed inset-y-0 top-14 left-0 z-30 w-64 border-r backdrop-blur-sm transition-transform duration-300 ease-out lg:static lg:translate-x-0',
                 sidebarOpen
                   ? 'translate-x-0'
                   : '-translate-x-full lg:w-0 lg:overflow-hidden lg:border-0',
@@ -90,7 +91,7 @@ export function AppShell({ children, sidebar, activityPanel, header }: AppShellP
 
             {sidebarOpen && (
               <div
-                className="fixed inset-0 top-14 z-20 bg-black/50 backdrop-blur-sm lg:hidden"
+                className="animate-fade-in fixed inset-0 top-14 z-20 bg-black/50 backdrop-blur-sm lg:hidden"
                 onClick={() => setSidebarOpen(false)}
                 aria-hidden="true"
               />
@@ -100,7 +101,11 @@ export function AppShell({ children, sidebar, activityPanel, header }: AppShellP
 
         <main className="flex min-w-0 flex-1 flex-col overflow-hidden">
           <div className="flex min-w-0 flex-1 overflow-hidden">
-            <div className="min-w-0 flex-1 overflow-auto p-3 sm:p-6 lg:p-8">{children}</div>
+            <div className="min-w-0 flex-1 overflow-auto p-3 sm:p-6 lg:p-8">
+              <div key={location.pathname} className="animate-fade-in-up">
+                {children}
+              </div>
+            </div>
             {activityPanel && (
               <aside className="hidden w-72 shrink-0 xl:block">{activityPanel}</aside>
             )}

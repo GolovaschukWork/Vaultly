@@ -13,6 +13,7 @@ import {
 import { useTranslation } from 'react-i18next';
 import { trpc } from '@/lib/trpc';
 import { formatDate } from '@/lib/utils';
+import { getStaggerStyle } from '@/lib/motion';
 import { useUIStore } from '@/stores/ui-store';
 
 interface ActivityPanelProps {
@@ -57,11 +58,15 @@ export function ActivityPanel({ roomId }: ActivityPanelProps) {
         <p className="text-content-muted px-4 py-3 text-sm">{t('common:noActivity')}</p>
       ) : (
         <ul className="divide-border divide-y">
-          {activities.map((activity) => {
+          {activities.map((activity, index) => {
             const Icon = activityIcons[activity.type] ?? FileText;
             const labelKey = activityLabels[activity.type] ?? 'activityCreated';
             return (
-              <li key={activity.id} className="flex items-start gap-3 px-4 py-3">
+              <li
+                key={activity.id}
+                className="animate-fade-in-up flex items-start gap-3 px-4 py-3"
+                style={getStaggerStyle(index)}
+              >
                 <Icon className="text-content-muted mt-0.5 h-4 w-4 shrink-0" />
                 <div className="min-w-0 flex-1">
                   <p className="text-content-primary text-sm">
@@ -108,7 +113,7 @@ export function ActivityPanel({ roomId }: ActivityPanelProps) {
 
       <div
         className={cn(
-          'overflow-hidden transition-all xl:block',
+          'overflow-hidden transition-all duration-300 ease-out xl:block',
           activityPanelOpen ? 'max-h-96 xl:max-h-none' : 'max-h-0 xl:max-h-none',
         )}
       >

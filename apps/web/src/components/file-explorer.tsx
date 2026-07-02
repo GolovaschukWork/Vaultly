@@ -33,6 +33,7 @@ import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from '@tanstack/react-router';
 import { formatDate, formatFileSize } from '@/lib/utils';
+import { getStaggerStyle } from '@/lib/motion';
 
 export type ExplorerItem =
   | {
@@ -164,6 +165,7 @@ function MobileItemCard({
   onDelete,
   onPreview,
   canEdit = true,
+  animationIndex = 0,
 }: {
   item: ExplorerItem;
   roomId: string;
@@ -171,6 +173,7 @@ function MobileItemCard({
   onDelete: (item: ExplorerItem) => void;
   onPreview?: (item: Extract<ExplorerItem, { type: 'file' }>) => void;
   canEdit?: boolean;
+  animationIndex?: number;
 }) {
   const Icon = item.type === 'folder' ? Folder : FileText;
 
@@ -192,7 +195,10 @@ function MobileItemCard({
   );
 
   return (
-    <div className="border-border bg-surface flex items-center gap-3 rounded-xl border p-3 shadow-sm">
+    <div
+      className="animate-fade-in-up border-border bg-surface flex items-center gap-3 rounded-xl border p-3 shadow-sm transition-shadow hover:shadow-md"
+      style={getStaggerStyle(animationIndex)}
+    >
       {item.type === 'folder' ? (
         <Link
           to="/rooms/$roomId/f/$folderId"
@@ -225,10 +231,12 @@ function DraggableRow({
   item,
   children,
   canEdit = true,
+  animationIndex = 0,
 }: {
   item: ExplorerItem;
   children: React.ReactNode;
   canEdit?: boolean;
+  animationIndex?: number;
 }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `${item.type}-${item.id}`,
@@ -240,9 +248,10 @@ function DraggableRow({
     <tr
       ref={setNodeRef}
       className={cn(
-        'border-border hover:bg-surface-elevated border-b transition-colors',
+        'animate-fade-in-up border-border hover:bg-surface-elevated border-b transition-colors',
         isDragging && 'opacity-30',
       )}
+      style={getStaggerStyle(animationIndex)}
     >
       <td className="hidden w-8 px-2 py-3 md:table-cell">
         {canEdit ? (
@@ -410,7 +419,7 @@ export function FileExplorer({
     <>
       {/* Mobile card list */}
       <div className="space-y-2 md:hidden">
-        {sortedItems.map((item) => (
+        {sortedItems.map((item, index) => (
           <MobileItemCard
             key={`${item.type}-${item.id}`}
             item={item}
@@ -419,6 +428,7 @@ export function FileExplorer({
             onDelete={onDelete}
             onPreview={onPreview}
             canEdit={canEdit}
+            animationIndex={index}
           />
         ))}
       </div>
@@ -463,8 +473,13 @@ export function FileExplorer({
             ))}
           </thead>
           <tbody>
-            {table.getRowModel().rows.map((row) => (
-              <DraggableRow key={row.id} item={row.original} canEdit={canEdit}>
+            {table.getRowModel().rows.map((row, index) => (
+              <DraggableRow
+                key={row.id}
+                item={row.original}
+                canEdit={canEdit}
+                animationIndex={index}
+              >
                 {row.getVisibleCells().map((cell) => {
                   if (cell.column.id === 'drag') return null;
                   if (cell.column.id === 'type') {

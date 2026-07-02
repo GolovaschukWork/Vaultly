@@ -157,7 +157,7 @@ function LoginPage() {
         <ThemeToggle />
       </div>
 
-      <div className="border-border bg-surface w-full max-w-md rounded-2xl border p-8 shadow-lg">
+      <div className="animate-fade-in-up border-border bg-surface w-full max-w-md rounded-2xl border p-8 shadow-lg">
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="from-brand-600 to-brand-500 mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br shadow-sm">
             <Vault className="h-6 w-6 text-white" />

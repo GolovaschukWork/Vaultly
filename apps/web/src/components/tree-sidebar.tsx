@@ -11,6 +11,14 @@ interface TreeSidebarProps {
   currentFolderId?: string | null;
 }
 
+const folderLinkClass = (isActive: boolean) =>
+  cn(
+    'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
+    isActive
+      ? 'bg-brand-100 font-medium text-brand-900 ring-1 ring-inset ring-brand-500/25 dark:bg-brand-500/25 dark:text-brand-950 dark:ring-brand-400/50'
+      : 'text-content-secondary hover:bg-surface-elevated hover:text-content-primary',
+  );
+
 interface FolderNode {
   id: string;
   name: string;
@@ -107,15 +115,12 @@ function DraggableFolderItem({
         <Link
           to="/rooms/$roomId/f/$folderId"
           params={{ roomId, folderId: node.id }}
-          className={cn(
-            'flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
-            isActive
-              ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300'
-              : 'text-content-secondary hover:bg-surface-elevated hover:text-content-primary',
-          )}
+          className={cn('min-w-0 flex-1', folderLinkClass(isActive))}
           onClick={(e) => isDragging && e.preventDefault()}
         >
-          <Folder className="h-4 w-4 shrink-0" />
+          <Folder
+            className={cn('h-4 w-4 shrink-0', isActive && 'text-brand-600 dark:text-brand-900')}
+          />
           <span className="truncate">{node.name}</span>
         </Link>
       </div>
@@ -166,14 +171,14 @@ export function TreeSidebar({ roomId, currentFolderId }: TreeSidebarProps) {
               <Link
                 to="/rooms/$roomId"
                 params={{ roomId }}
-                className={cn(
-                  'flex items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors',
-                  !currentFolderId
-                    ? 'bg-brand-100 text-brand-700 dark:bg-brand-900/40 dark:text-brand-300'
-                    : 'text-content-secondary hover:bg-surface-elevated',
-                )}
+                className={cn('w-full', folderLinkClass(!currentFolderId))}
               >
-                <Folder className="h-4 w-4" />
+                <Folder
+                  className={cn(
+                    'h-4 w-4 shrink-0',
+                    !currentFolderId && 'text-brand-600 dark:text-brand-900',
+                  )}
+                />
                 {t('common:root')}
               </Link>
             </div>
