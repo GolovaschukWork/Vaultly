@@ -9,6 +9,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
+      '@vaultly/api/router': path.resolve(__dirname, '../api/src/trpc/router.ts'),
     },
   },
   server: {
