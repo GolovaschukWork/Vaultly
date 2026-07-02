@@ -19,9 +19,17 @@ import {
   fileRestoreSchema,
   activityListSchema,
   searchQuerySchema,
-  publicProcedure,
+  protectedProcedure,
   router,
 } from '@vaultly/trpc';
+import {
+  getAccessibleFile,
+  getAccessibleFolder,
+  getRoomAccess,
+  requireRoomAccess,
+  requireRoomOwner,
+} from './access';
+import { ensureInvitesActivated, memberRouter } from './member.router';
 
 async function logActivity(
   dataRoomId: string,
@@ -122,29 +130,61 @@ async function isDescendantOf(folderId: string, ancestorId: string): Promise<boo
 
 export const appRouter = router({
   dataRoom: router({
-    list: publicProcedure.query(async () => {
-      return prisma.dataRoom.findMany({
+    list: protectedProcedure.query(async ({ ctx }) => {
+      await ensureInvitesActivated(ctx);
+
+      const owned = await prisma.dataRoom.findMany({
+        where: { userId: ctx.userId },
         orderBy: { updatedAt: 'desc' },
       });
+
+      const memberships = await prisma.roomMember.findMany({
+        where: { userId: ctx.userId, status: 'ACTIVE' },
+        include: { dataRoom: true },
+        orderBy: { updatedAt: 'desc' },
+      });
+
+      const ownedRooms = owned.map((room) => ({
+        ...room,
+        accessRole: 'owner' as const,
+      }));
+
+      const sharedRooms = memberships
+        .filter((membership) => membership.dataRoom.userId !== ctx.userId)
+        .map((membership) => ({
+          ...membership.dataRoom,
+          accessRole: membership.role === 'EDITOR' ? ('editor' as const) : ('viewer' as const),
+        }));
+
+      return [...ownedRooms, ...sharedRooms];
     }),
 
-    create: publicProcedure.input(dataRoomCreateSchema).mutation(async ({ input }) => {
+    getAccess: protectedProcedure.input(dataRoomDeleteSchema).query(async ({ ctx, input }) => {
+      await ensureInvitesActivated(ctx);
+      const accessRole = await getRoomAccess(input.id, ctx.userId);
+      if (!accessRole) throw createNotFoundError('Data room not found');
+      return { accessRole };
+    }),
+
+    create: protectedProcedure.input(dataRoomCreateSchema).mutation(async ({ ctx, input }) => {
       const room = await prisma.dataRoom.create({
-        data: { name: input.name },
+        data: { name: input.name, userId: ctx.userId },
       });
       await logActivity(room.id, ActivityType.CREATED, 'room', room.id, room.name);
       return room;
     }),
 
-    delete: publicProcedure.input(dataRoomDeleteSchema).mutation(async ({ input }) => {
-      const room = await prisma.dataRoom.findUnique({ where: { id: input.id } });
-      if (!room) throw createNotFoundError('Data room not found');
+    delete: protectedProcedure.input(dataRoomDeleteSchema).mutation(async ({ ctx, input }) => {
+      await requireRoomOwner(input.id, ctx.userId);
       await prisma.dataRoom.delete({ where: { id: input.id } });
     }),
   }),
 
+  member: memberRouter,
+
   folder: router({
-    list: publicProcedure.input(folderListSchema).query(async ({ input }) => {
+    list: protectedProcedure.input(folderListSchema).query(async ({ ctx, input }) => {
+      await requireRoomAccess(input.dataRoomId, ctx.userId, 'viewer');
       return prisma.folder.findMany({
         where: {
           dataRoomId: input.dataRoomId,
@@ -155,16 +195,18 @@ export const appRouter = router({
       });
     }),
 
-    listAll: publicProcedure
+    listAll: protectedProcedure
       .input(folderListSchema.pick({ dataRoomId: true }))
-      .query(async ({ input }) => {
+      .query(async ({ ctx, input }) => {
+        await requireRoomAccess(input.dataRoomId, ctx.userId, 'viewer');
         return prisma.folder.findMany({
           where: { dataRoomId: input.dataRoomId, deletedAt: null },
           orderBy: { name: 'asc' },
         });
       }),
 
-    create: publicProcedure.input(folderCreateSchema).mutation(async ({ input }) => {
+    create: protectedProcedure.input(folderCreateSchema).mutation(async ({ ctx, input }) => {
+      await requireRoomAccess(input.dataRoomId, ctx.userId, 'editor');
       const parentId = input.parentId ?? null;
       await checkFolderNameConflict(input.dataRoomId, parentId, input.name);
 
@@ -186,12 +228,8 @@ export const appRouter = router({
       return folder;
     }),
 
-    rename: publicProcedure.input(folderRenameSchema).mutation(async ({ input }) => {
-      const folder = await prisma.folder.findFirst({
-        where: { id: input.id, deletedAt: null },
-      });
-      if (!folder) throw createNotFoundError('Folder not found');
-
+    rename: protectedProcedure.input(folderRenameSchema).mutation(async ({ ctx, input }) => {
+      const folder = await getAccessibleFolder(input.id, ctx.userId, 'editor');
       await checkFolderNameConflict(folder.dataRoomId, folder.parentId, input.name, folder.id);
 
       const updated = await prisma.folder.update({
@@ -202,19 +240,14 @@ export const appRouter = router({
       return updated;
     }),
 
-    delete: publicProcedure.input(folderDeleteSchema).mutation(async ({ input }) => {
-      const folder = await prisma.folder.findFirst({
-        where: { id: input.id, deletedAt: null },
-      });
-      if (!folder) throw createNotFoundError('Folder not found');
-
+    delete: protectedProcedure.input(folderDeleteSchema).mutation(async ({ ctx, input }) => {
+      const folder = await getAccessibleFolder(input.id, ctx.userId, 'editor');
       await softDeleteFolderCascade(input.id);
       await logActivity(folder.dataRoomId, ActivityType.DELETED, 'folder', folder.id, folder.name);
     }),
 
-    restore: publicProcedure.input(folderRestoreSchema).mutation(async ({ input }) => {
-      const folder = await prisma.folder.findUnique({ where: { id: input.id } });
-      if (!folder) throw createNotFoundError('Folder not found');
+    restore: protectedProcedure.input(folderRestoreSchema).mutation(async ({ ctx, input }) => {
+      const folder = await getAccessibleFolder(input.id, ctx.userId, 'editor', true);
 
       if (folder.parentId) {
         const parent = await prisma.folder.findFirst({
@@ -228,11 +261,8 @@ export const appRouter = router({
       await restoreFolderCascade(input.id);
     }),
 
-    move: publicProcedure.input(folderMoveSchema).mutation(async ({ input }) => {
-      const folder = await prisma.folder.findFirst({
-        where: { id: input.id, deletedAt: null },
-      });
-      if (!folder) throw createNotFoundError('Folder not found');
+    move: protectedProcedure.input(folderMoveSchema).mutation(async ({ ctx, input }) => {
+      const folder = await getAccessibleFolder(input.id, ctx.userId, 'editor');
 
       if (input.targetParentId === input.id) {
         throw createBadRequestError('Cannot move folder into itself');
@@ -269,7 +299,8 @@ export const appRouter = router({
       return updated;
     }),
 
-    getPath: publicProcedure.input(folderDeleteSchema).query(async ({ input }) => {
+    getPath: protectedProcedure.input(folderDeleteSchema).query(async ({ ctx, input }) => {
+      await getAccessibleFolder(input.id, ctx.userId, 'viewer');
       const path: { id: string; name: string }[] = [];
       let current = await prisma.folder.findFirst({
         where: { id: input.id, deletedAt: null },
@@ -288,7 +319,8 @@ export const appRouter = router({
   }),
 
   file: router({
-    list: publicProcedure.input(fileListSchema).query(async ({ input }) => {
+    list: protectedProcedure.input(fileListSchema).query(async ({ ctx, input }) => {
+      await requireRoomAccess(input.dataRoomId, ctx.userId, 'viewer');
       return prisma.file.findMany({
         where: {
           dataRoomId: input.dataRoomId,
@@ -299,7 +331,8 @@ export const appRouter = router({
       });
     }),
 
-    create: publicProcedure.input(fileCreateSchema).mutation(async ({ input }) => {
+    create: protectedProcedure.input(fileCreateSchema).mutation(async ({ ctx, input }) => {
+      await requireRoomAccess(input.dataRoomId, ctx.userId, 'editor');
       const folderId = input.folderId ?? null;
       await checkFileNameConflict(input.dataRoomId, folderId, input.name);
 
@@ -324,12 +357,8 @@ export const appRouter = router({
       return file;
     }),
 
-    rename: publicProcedure.input(fileRenameSchema).mutation(async ({ input }) => {
-      const file = await prisma.file.findFirst({
-        where: { id: input.id, deletedAt: null },
-      });
-      if (!file) throw createNotFoundError('File not found');
-
+    rename: protectedProcedure.input(fileRenameSchema).mutation(async ({ ctx, input }) => {
+      const file = await getAccessibleFile(input.id, ctx.userId, 'editor');
       await checkFileNameConflict(file.dataRoomId, file.folderId, input.name, file.id);
 
       const updated = await prisma.file.update({
@@ -340,12 +369,8 @@ export const appRouter = router({
       return updated;
     }),
 
-    delete: publicProcedure.input(fileDeleteSchema).mutation(async ({ input }) => {
-      const file = await prisma.file.findFirst({
-        where: { id: input.id, deletedAt: null },
-      });
-      if (!file) throw createNotFoundError('File not found');
-
+    delete: protectedProcedure.input(fileDeleteSchema).mutation(async ({ ctx, input }) => {
+      const file = await getAccessibleFile(input.id, ctx.userId, 'editor');
       await prisma.file.update({
         where: { id: input.id },
         data: { deletedAt: new Date() },
@@ -353,9 +378,8 @@ export const appRouter = router({
       await logActivity(file.dataRoomId, ActivityType.DELETED, 'file', file.id, file.name);
     }),
 
-    restore: publicProcedure.input(fileRestoreSchema).mutation(async ({ input }) => {
-      const file = await prisma.file.findUnique({ where: { id: input.id } });
-      if (!file) throw createNotFoundError('File not found');
+    restore: protectedProcedure.input(fileRestoreSchema).mutation(async ({ ctx, input }) => {
+      const file = await getAccessibleFile(input.id, ctx.userId, 'editor', true);
 
       if (file.folderId) {
         const folder = await prisma.folder.findFirst({
@@ -372,11 +396,8 @@ export const appRouter = router({
       });
     }),
 
-    move: publicProcedure.input(fileMoveSchema).mutation(async ({ input }) => {
-      const file = await prisma.file.findFirst({
-        where: { id: input.id, deletedAt: null },
-      });
-      if (!file) throw createNotFoundError('File not found');
+    move: protectedProcedure.input(fileMoveSchema).mutation(async ({ ctx, input }) => {
+      const file = await getAccessibleFile(input.id, ctx.userId, 'editor');
 
       if (input.targetFolderId) {
         const target = await prisma.folder.findFirst({
@@ -401,7 +422,8 @@ export const appRouter = router({
   }),
 
   activity: router({
-    list: publicProcedure.input(activityListSchema).query(async ({ input }) => {
+    list: protectedProcedure.input(activityListSchema).query(async ({ ctx, input }) => {
+      await requireRoomAccess(input.dataRoomId, ctx.userId, 'viewer');
       return prisma.activity.findMany({
         where: { dataRoomId: input.dataRoomId },
         orderBy: { createdAt: 'desc' },
@@ -411,7 +433,8 @@ export const appRouter = router({
   }),
 
   search: router({
-    query: publicProcedure.input(searchQuerySchema).query(async ({ input }) => {
+    query: protectedProcedure.input(searchQuerySchema).query(async ({ ctx, input }) => {
+      await requireRoomAccess(input.dataRoomId, ctx.userId, 'viewer');
       const q = input.q.toLowerCase();
 
       const [folders, files] = await Promise.all([

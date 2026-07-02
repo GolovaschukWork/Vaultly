@@ -18,7 +18,10 @@ export function Breadcrumbs({ roomId, roomName, folderId }: BreadcrumbsProps) {
   );
 
   return (
-    <nav aria-label="Breadcrumb" className="flex items-center gap-1 overflow-x-auto text-sm">
+    <nav
+      aria-label="Breadcrumb"
+      className="flex scrollbar-none items-center gap-1 overflow-x-auto text-sm [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
+    >
       <Link
         to="/"
         className="text-content-secondary hover:text-content-primary flex shrink-0 items-center gap-1"

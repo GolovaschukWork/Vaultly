@@ -10,6 +10,7 @@ import {
   Button,
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogTitle,
@@ -17,6 +18,7 @@ import {
   Label,
 } from '@vaultly/ui';
 import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { z } from 'zod';
@@ -46,9 +48,12 @@ export function CreateDataRoomDialog({
     defaultValues: { name: '' },
   });
 
+  useEffect(() => {
+    if (open) form.reset({ name: '' });
+  }, [open, form]);
+
   const handleSubmit = form.handleSubmit((values) => {
     onSubmit(values.name);
-    form.reset();
   });
 
   return (
@@ -56,6 +61,7 @@ export function CreateDataRoomDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('actions:createDataRoom')}</DialogTitle>
+          <DialogDescription>{t('common:emptyRoomsDescription')}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -76,7 +82,7 @@ export function CreateDataRoomDialog({
               {t('actions:cancel')}
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {t('actions:create')}
+              {isLoading ? t('common:loading') : t('actions:create')}
             </Button>
           </DialogFooter>
         </form>
@@ -104,9 +110,12 @@ export function CreateFolderDialog({
     defaultValues: { name: '' },
   });
 
+  useEffect(() => {
+    if (open) form.reset({ name: '' });
+  }, [open, form]);
+
   const handleSubmit = form.handleSubmit((values) => {
     onSubmit(values.name);
-    form.reset();
   });
 
   return (
@@ -114,6 +123,7 @@ export function CreateFolderDialog({
       <DialogContent>
         <DialogHeader>
           <DialogTitle>{t('actions:createFolder')}</DialogTitle>
+          <DialogDescription>{t('common:emptyFolderDescription')}</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -134,7 +144,7 @@ export function CreateFolderDialog({
               {t('actions:cancel')}
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {t('actions:create')}
+              {isLoading ? t('common:loading') : t('actions:create')}
             </Button>
           </DialogFooter>
         </form>
@@ -166,6 +176,10 @@ export function RenameDialog({
     defaultValues: { name: currentName },
   });
 
+  useEffect(() => {
+    if (open) form.reset({ name: currentName });
+  }, [open, currentName, form]);
+
   const handleSubmit = form.handleSubmit((values) => {
     onSubmit(values.name);
   });
@@ -191,7 +205,7 @@ export function RenameDialog({
               {t('actions:cancel')}
             </Button>
             <Button type="submit" disabled={isLoading}>
-              {t('actions:save')}
+              {isLoading ? t('common:loading') : t('actions:save')}
             </Button>
           </DialogFooter>
         </form>
@@ -234,13 +248,13 @@ export function DeleteConfirmDialog({
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogCancel>{t('actions:cancel')}</AlertDialogCancel>
+          <AlertDialogCancel disabled={isLoading}>{t('actions:cancel')}</AlertDialogCancel>
           <AlertDialogAction
             onClick={onConfirm}
             className="bg-danger text-danger-fg hover:bg-danger/90"
             disabled={isLoading}
           >
-            {t('actions:delete')}
+            {isLoading ? t('common:loading') : t('actions:delete')}
           </AlertDialogAction>
         </AlertDialogFooter>
       </AlertDialogContent>

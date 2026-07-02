@@ -1,0 +1,17 @@
+{
+  "title": "Share data room",
+  "description": "Invite members to \"{{name}}\"",
+  "emailPlaceholder": "colleague@company.com",
+  "role": "Access level",
+  "roleViewer": "Viewer",
+  "roleEditor": "Editor",
+  "invite": "Send invite",
+  "inviteSent": "Invitation sent",
+  "members": "Members",
+  "noMembers": "No members invited yet",
+  "pending": "Pending",
+  "removeMember": "Remove member",
+  "memberRemoved": "Member removed",
+  "sharedRoom": "Shared with you",
+  "share": "Share"
+}

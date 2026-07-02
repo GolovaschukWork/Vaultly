@@ -9,13 +9,44 @@ datasource db {
 }
 
 model DataRoom {
-  id         String     @id @default(cuid())
+  id         String       @id @default(cuid())
+  userId     String
   name       String
-  createdAt  DateTime   @default(now())
-  updatedAt  DateTime   @updatedAt
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
   folders    Folder[]
   files      File[]
   activities Activity[]
+  members    RoomMember[]
+
+  @@index([userId])
+}
+
+model RoomMember {
+  id         String           @id @default(cuid())
+  dataRoomId String
+  dataRoom   DataRoom         @relation(fields: [dataRoomId], references: [id], onDelete: Cascade)
+  userId     String?
+  email      String
+  role       RoomMemberRole   @default(VIEWER)
+  status     RoomMemberStatus @default(PENDING)
+  invitedBy  String
+  createdAt  DateTime         @default(now())
+  updatedAt  DateTime         @updatedAt
+
+  @@unique([dataRoomId, email])
+  @@index([userId])
+  @@index([email])
+}
+
+enum RoomMemberRole {
+  EDITOR
+  VIEWER
+}
+
+enum RoomMemberStatus {
+  PENDING
+  ACTIVE
 }
 
 model Folder {

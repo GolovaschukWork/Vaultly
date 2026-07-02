@@ -1,0 +1,17 @@
+{
+  "title": "Поділитися кімнатою",
+  "description": "Запросити учасників до «{{name}}»",
+  "emailPlaceholder": "colleague@company.com",
+  "role": "Рівень доступу",
+  "roleViewer": "Перегляд",
+  "roleEditor": "Редактор",
+  "invite": "Надіслати запрошення",
+  "inviteSent": "Запрошення надіслано",
+  "members": "Учасники",
+  "noMembers": "Ще немає запрошених учасників",
+  "pending": "Очікує",
+  "removeMember": "Видалити учасника",
+  "memberRemoved": "Учасника видалено",
+  "sharedRoom": "Спільний доступ",
+  "share": "Поділитися"
+}

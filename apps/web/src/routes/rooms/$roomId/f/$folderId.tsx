@@ -1,6 +1,4 @@
-import { Button } from '@vaultly/ui';
 import { createFileRoute } from '@tanstack/react-router';
-import { FolderPlus, Upload } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { ActivityPanel } from '@/components/activity-panel';
@@ -10,11 +8,16 @@ import { CreateFolderDialog, DeleteConfirmDialog, RenameDialog } from '@/compone
 import { EmptyState } from '@/components/empty-state';
 import { FileExplorer, type ExplorerItem } from '@/components/file-explorer';
 import { PDFViewer } from '@/components/pdf-viewer';
+import { RoomDndProvider } from '@/components/room-dnd-provider';
+import { RoomMobileSearch, RoomPageHeader, RoomToolbar } from '@/components/room-toolbar';
 import { SearchBar } from '@/components/search-bar';
 import { TreeSidebar } from '@/components/tree-sidebar';
 import { UploadDropzone } from '@/components/upload-dropzone';
-import { toast, ToastAction } from '@/hooks/use-toast';
+import { ShareRoomDialog } from '@/components/share-room-dialog';
+import { toast, TOAST_REMOVE_DELAY, ToastAction } from '@/hooks/use-toast';
+import { useRoomAccess } from '@/hooks/use-room-access';
 import { deleteBlob, generateStorageKey, storeBlob } from '@/lib/dexie';
+import { invalidateRoomActivity } from '@/lib/room-cache';
 import { trpc } from '@/lib/trpc';
 import { ensurePdfExtension, PDF_MIME_TYPE } from '@/lib/utils';
 import { useUIStore } from '@/stores/ui-store';
@@ -27,7 +30,9 @@ function FolderPage() {
   const { roomId, folderId } = Route.useParams();
   const { t } = useTranslation();
   const { setPreviewFile } = useUIStore();
+  const { canEdit, isOwner } = useRoomAccess(roomId);
 
+  const [shareOpen, setShareOpen] = useState(false);
   const [createFolderOpen, setCreateFolderOpen] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [renameTarget, setRenameTarget] = useState<ExplorerItem | null>(null);
@@ -72,6 +77,7 @@ function FolderPage() {
     onSuccess: (folder) => {
       void utils.folder.list.invalidate();
       void utils.folder.listAll.invalidate({ dataRoomId: roomId });
+      invalidateRoomActivity(utils, roomId);
       setCreateFolderOpen(false);
       toast({ title: t('actions:created', { name: folder.name }) });
     },
@@ -83,6 +89,7 @@ function FolderPage() {
     onSuccess: (folder) => {
       void utils.folder.list.invalidate();
       void utils.folder.listAll.invalidate({ dataRoomId: roomId });
+      invalidateRoomActivity(utils, roomId);
       setRenameTarget(null);
       toast({ title: t('actions:renamed', { name: folder.name }) });
     },
@@ -93,6 +100,7 @@ function FolderPage() {
   const renameFile = trpc.file.rename.useMutation({
     onSuccess: (file) => {
       void utils.file.list.invalidate();
+      invalidateRoomActivity(utils, roomId);
       setRenameTarget(null);
       toast({ title: t('actions:renamed', { name: file.name }) });
     },
@@ -101,59 +109,23 @@ function FolderPage() {
   });
 
   const deleteFolder = trpc.folder.delete.useMutation({
-    onSuccess: () => {
-      void utils.folder.list.invalidate();
-      void utils.folder.listAll.invalidate({ dataRoomId: roomId });
-      const name = deleteTarget?.name ?? '';
-      const id = deleteTarget?.id ?? '';
-      setDeleteTarget(null);
-      toast({
-        title: t('actions:deleted', { name }),
-        action: (
-          <ToastAction altText={t('actions:undo')} onClick={() => restoreFolder.mutate({ id })}>
-            {t('actions:undo')}
-          </ToastAction>
-        ),
-      });
-    },
     onError: (err) =>
       toast({ title: t('errors:deleteFailed'), description: err.message, variant: 'destructive' }),
   });
 
   const restoreFolder = trpc.folder.restore.useMutation({
-    onSuccess: () => {
-      void utils.folder.list.invalidate();
-      void utils.folder.listAll.invalidate({ dataRoomId: roomId });
-    },
+    onError: (err) =>
+      toast({ title: t('errors:restoreFailed'), description: err.message, variant: 'destructive' }),
   });
 
   const deleteFile = trpc.file.delete.useMutation({
-    onSuccess: () => {
-      const target = deleteTarget;
-      void utils.file.list.invalidate();
-      setDeleteTarget(null);
-
-      if (target?.type === 'file') {
-        toast({
-          title: t('actions:deleted', { name: target.name }),
-          action: (
-            <ToastAction
-              altText={t('actions:undo')}
-              onClick={() => restoreFile.mutate({ id: target.id })}
-            >
-              {t('actions:undo')}
-            </ToastAction>
-          ),
-        });
-        setTimeout(() => void deleteBlob(target.storageKey), 10000);
-      }
-    },
     onError: (err) =>
       toast({ title: t('errors:deleteFailed'), description: err.message, variant: 'destructive' }),
   });
 
   const restoreFile = trpc.file.restore.useMutation({
-    onSuccess: () => void utils.file.list.invalidate(),
+    onError: (err) =>
+      toast({ title: t('errors:restoreFailed'), description: err.message, variant: 'destructive' }),
   });
 
   const createFile = trpc.file.create.useMutation();
@@ -181,6 +153,7 @@ function FolderPage() {
       }
     }
     void utils.file.list.invalidate();
+    invalidateRoomActivity(utils, roomId);
     setUploadOpen(false);
   };
 
@@ -195,40 +168,117 @@ function FolderPage() {
 
   const handleDelete = () => {
     if (!deleteTarget) return;
-    if (deleteTarget.type === 'folder') {
-      deleteFolder.mutate({ id: deleteTarget.id });
-    } else {
-      deleteFile.mutate({ id: deleteTarget.id });
+    const target = deleteTarget;
+    setDeleteTarget(null);
+
+    if (target.type === 'folder') {
+      deleteFolder.mutate(
+        { id: target.id },
+        {
+          onSuccess: () => {
+            void utils.folder.list.invalidate();
+            void utils.folder.listAll.invalidate({ dataRoomId: roomId });
+            invalidateRoomActivity(utils, roomId);
+            toast({
+              title: t('actions:deleted', { name: target.name }),
+              action: (
+                <ToastAction
+                  altText={t('actions:undo')}
+                  onClick={() =>
+                    restoreFolder.mutate(
+                      { id: target.id },
+                      {
+                        onSuccess: () => {
+                          void utils.folder.list.invalidate();
+                          void utils.folder.listAll.invalidate({ dataRoomId: roomId });
+                          invalidateRoomActivity(utils, roomId);
+                          toast({ title: t('actions:restored', { name: target.name }) });
+                        },
+                      },
+                    )
+                  }
+                >
+                  {t('actions:undo')}
+                </ToastAction>
+              ),
+            });
+          },
+        },
+      );
+      return;
     }
+
+    deleteFile.mutate(
+      { id: target.id },
+      {
+        onSuccess: () => {
+          void utils.file.list.invalidate();
+          invalidateRoomActivity(utils, roomId);
+          const blobPurgeTimer = window.setTimeout(
+            () => void deleteBlob(target.storageKey),
+            TOAST_REMOVE_DELAY,
+          );
+          toast({
+            title: t('actions:deleted', { name: target.name }),
+            action: (
+              <ToastAction
+                altText={t('actions:undo')}
+                onClick={() => {
+                  window.clearTimeout(blobPurgeTimer);
+                  restoreFile.mutate(
+                    { id: target.id },
+                    {
+                      onSuccess: () => {
+                        void utils.file.list.invalidate();
+                        invalidateRoomActivity(utils, roomId);
+                        toast({ title: t('actions:restored', { name: target.name }) });
+                      },
+                    },
+                  );
+                }}
+              >
+                {t('actions:undo')}
+              </ToastAction>
+            ),
+          });
+        },
+      },
+    );
   };
 
   const isLoading = foldersLoading || filesLoading;
   const isEmpty = !isLoading && items.length === 0;
 
   return (
-    <>
+    <RoomDndProvider roomId={roomId}>
       <AppShell
         sidebar={<TreeSidebar roomId={roomId} currentFolderId={folderId} />}
         activityPanel={<ActivityPanel roomId={roomId} />}
         header={
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <Breadcrumbs roomId={roomId} roomName={room?.name ?? '...'} folderId={folderId} />
-            <SearchBar roomId={roomId} className="w-full sm:max-w-xs" />
-          </div>
+          <RoomPageHeader
+            breadcrumbs={
+              <Breadcrumbs roomId={roomId} roomName={room?.name ?? '...'} folderId={folderId} />
+            }
+            search={<SearchBar roomId={roomId} className="w-full" />}
+          />
         }
       >
-        <div className="mb-4 flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => setCreateFolderOpen(true)}>
-            <FolderPlus className="mr-2 h-4 w-4" />
-            {t('actions:newFolder')}
-          </Button>
-          <Button size="sm" variant="outline" onClick={() => setUploadOpen((v) => !v)}>
-            <Upload className="mr-2 h-4 w-4" />
-            {t('actions:upload')}
-          </Button>
+        <RoomMobileSearch>
+          <SearchBar roomId={roomId} className="w-full" />
+        </RoomMobileSearch>
+
+        <div className="mb-4">
+          <RoomToolbar
+            onCreateFolder={() => setCreateFolderOpen(true)}
+            onToggleUpload={() => setUploadOpen((v) => !v)}
+            uploadOpen={uploadOpen}
+            canEdit={canEdit}
+            showShare={isOwner}
+            onShare={() => setShareOpen(true)}
+          />
         </div>
 
-        {uploadOpen && (
+        {uploadOpen && canEdit && (
           <div className="mb-6">
             <UploadDropzone onUpload={handleUpload} isUploading={createFile.isPending} />
           </div>
@@ -241,6 +291,7 @@ function FolderPage() {
             roomId={roomId}
             items={items}
             isLoading={isLoading}
+            canEdit={canEdit}
             onRename={setRenameTarget}
             onDelete={setDeleteTarget}
             onPreview={(item) =>
@@ -251,6 +302,13 @@ function FolderPage() {
       </AppShell>
 
       <PDFViewer />
+
+      <ShareRoomDialog
+        open={shareOpen}
+        onOpenChange={setShareOpen}
+        roomId={roomId}
+        roomName={room?.name ?? '...'}
+      />
 
       <CreateFolderDialog
         open={createFolderOpen}
@@ -281,6 +339,6 @@ function FolderPage() {
           isLoading={deleteFolder.isPending || deleteFile.isPending}
         />
       )}
-    </>
+    </RoomDndProvider>
   );
 }

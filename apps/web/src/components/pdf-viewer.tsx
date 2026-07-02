@@ -1,6 +1,6 @@
 import { Button, Sheet, SheetContent, SheetHeader, SheetTitle } from '@vaultly/ui';
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Document, Page, pdfjs } from 'react-pdf';
 import { useTranslation } from 'react-i18next';
 import { getBlob } from '@/lib/dexie';
@@ -8,15 +8,44 @@ import { useUIStore } from '@/stores/ui-store';
 import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString();
+import pdfWorker from 'pdfjs-dist/build/pdf.worker.min.mjs?url';
+
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorker;
+
+function useElementWidth(margin = 32) {
+  const [width, setWidth] = useState(0);
+  const observerRef = useRef<ResizeObserver | null>(null);
+
+  const containerRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      observerRef.current?.disconnect();
+      observerRef.current = null;
+
+      if (!node) {
+        setWidth(0);
+        return;
+      }
+
+      const updateWidth = () => {
+        setWidth(Math.max(0, node.clientWidth - margin));
+      };
+
+      updateWidth();
+      const observer = new ResizeObserver(updateWidth);
+      observer.observe(node);
+      observerRef.current = observer;
+    },
+    [margin],
+  );
+
+  return { containerRef, width };
+}
 
 export function PDFViewer() {
   const { t } = useTranslation();
   const { previewFile, setPreviewFile } = useUIStore();
-  const [url, setUrl] = useState<string | null>(null);
+  const { containerRef, width } = useElementWidth();
+  const [blob, setBlob] = useState<Blob | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [pageNumber, setPageNumber] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -24,29 +53,35 @@ export function PDFViewer() {
 
   useEffect(() => {
     if (!previewFile) {
-      setUrl(null);
+      setBlob(null);
       return;
     }
 
-    let objectUrl: string | null = null;
+    let cancelled = false;
     setLoading(true);
     setError(false);
     setPageNumber(1);
+    setNumPages(0);
 
     void getBlob(previewFile.storageKey)
-      .then((blob) => {
-        if (!blob) {
+      .then((record) => {
+        if (cancelled) return;
+        if (!record) {
+          setBlob(null);
           setError(true);
           return;
         }
-        objectUrl = URL.createObjectURL(blob);
-        setUrl(objectUrl);
+        setBlob(record);
       })
-      .catch(() => setError(true))
-      .finally(() => setLoading(false));
+      .catch(() => {
+        if (!cancelled) setError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
 
     return () => {
-      if (objectUrl) URL.revokeObjectURL(objectUrl);
+      cancelled = true;
     };
   }, [previewFile]);
 
@@ -54,12 +89,12 @@ export function PDFViewer() {
 
   return (
     <Sheet open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
-      <SheetContent side="right" className="flex w-full flex-col sm:max-w-2xl">
-        <SheetHeader>
+      <SheetContent side="right" className="flex h-full w-full flex-col p-0 sm:max-w-2xl">
+        <SheetHeader className="border-border shrink-0 border-b px-6 py-4">
           <SheetTitle className="truncate pr-8">{previewFile.name}</SheetTitle>
         </SheetHeader>
 
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {loading && (
             <div className="flex flex-1 items-center justify-center">
               <Loader2 className="text-content-muted h-8 w-8 animate-spin" />
@@ -67,16 +102,19 @@ export function PDFViewer() {
           )}
 
           {error && (
-            <div className="text-content-secondary flex flex-1 items-center justify-center">
+            <div className="text-content-secondary flex flex-1 items-center justify-center px-6 text-center">
               {t('errors:previewFailed')}
             </div>
           )}
 
-          {url && !loading && !error && (
+          {blob && !loading && !error && (
             <>
-              <div className="border-border bg-surface-elevated flex-1 overflow-auto rounded-md border p-2">
+              <div
+                ref={containerRef}
+                className="bg-surface-elevated flex flex-1 justify-center overflow-auto p-4"
+              >
                 <Document
-                  file={url}
+                  file={blob}
                   onLoadSuccess={({ numPages: pages }) => setNumPages(pages)}
                   loading={
                     <div className="flex h-64 items-center justify-center">
@@ -84,18 +122,20 @@ export function PDFViewer() {
                     </div>
                   }
                   error={<p className="text-danger p-4 text-center">{t('errors:previewFailed')}</p>}
+                  className="flex justify-center"
                 >
                   <Page
                     pageNumber={pageNumber}
-                    width={Math.min(window.innerWidth - 80, 600)}
+                    width={width > 0 ? width : undefined}
                     renderTextLayer
                     renderAnnotationLayer
+                    className="shadow-md"
                   />
                 </Document>
               </div>
 
               {numPages > 1 && (
-                <div className="mt-4 flex items-center justify-center gap-4">
+                <div className="border-border flex shrink-0 items-center justify-center gap-4 border-t px-6 py-4">
                   <Button
                     variant="outline"
                     size="icon"

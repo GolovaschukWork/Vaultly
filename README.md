@@ -28,7 +28,8 @@ A full-stack Data Room application (Google Drive analog) built with React, NestJ
 
 ## Features
 
-- **Data Rooms** — create and list data rooms
+- **Auth** — Supabase email/password login, per-user data rooms
+- **Room sharing** — invite members by email with Editor or Viewer roles
 - **Folders** — nested folders with rename, delete (cascade), move
 - **Files** — PDF upload, preview, rename, delete with undo
 - **Tree Sidebar** — recursive folder tree with drag & drop
@@ -58,6 +59,20 @@ vaultly/
 
 - **Metadata** (rooms, folders, files, activity) → Supabase PostgreSQL via Prisma
 - **PDF blobs** → IndexedDB via Dexie (persists across page reloads)
+- **Auth** → Supabase Auth (JWT verified on API)
+
+### Per-user isolation
+
+- Each `DataRoom` belongs to a Supabase user (`userId`)
+- All tRPC procedures require a valid JWT (`Authorization: Bearer <token>`)
+- Users only see and modify their own data rooms and contents
+
+### Auth flow
+
+1. User signs in on `/login` via Supabase Auth (browser)
+2. Web attaches JWT to every tRPC request
+3. API verifies JWT with `SUPABASE_JWT_SECRET` and reads `sub` as `userId`
+4. All queries filter by `userId` on the owning data room
 
 ### File Upload Flow
 
@@ -99,14 +114,30 @@ cp apps/api/.env.example apps/api/.env
 
 Update `DATABASE_URL` and `DIRECT_URL` in both files with your Supabase credentials.
 
-### 3. Push database schema
+### 3. Configure Supabase Auth
+
+In the [Supabase Dashboard](https://supabase.com/dashboard):
+
+1. Enable **Email** provider under Authentication → Providers
+2. Copy **Project URL** and **anon public** key → `apps/web/.env`
+3. Copy **JWT Secret** (Project Settings → API) → `apps/api/.env` as `SUPABASE_JWT_SECRET`
+
+```bash
+cp apps/web/.env.example apps/web/.env
+```
+
+Update `apps/api/.env` with `SUPABASE_JWT_SECRET`.
+
+> **Migrating existing data:** adding `userId` to `DataRoom` requires a schema push. If you have rooms created before auth, delete them in Supabase SQL editor (`DELETE FROM "DataRoom";`) before running `db:push`, then create new rooms after signing in.
+
+### 4. Push database schema
 
 ```bash
 npm run db:generate
 npm run db:push
 ```
 
-### 4. Start development
+### 5. Start development
 
 ```bash
 npm run dev
@@ -130,11 +161,19 @@ npm run dev
 
 ### `packages/db/.env` and `apps/api/.env`
 
-| Variable       | Description                               |
-| -------------- | ----------------------------------------- |
-| `DATABASE_URL` | PostgreSQL connection string (pooled)     |
-| `DIRECT_URL`   | PostgreSQL direct connection (migrations) |
-| `PORT`         | API server port (default: 3001)           |
+| Variable              | Description                               |
+| --------------------- | ----------------------------------------- |
+| `DATABASE_URL`        | PostgreSQL connection string (pooled)     |
+| `DIRECT_URL`          | PostgreSQL direct connection (migrations) |
+| `SUPABASE_JWT_SECRET` | Supabase JWT secret for API auth          |
+| `PORT`                | API server port (default: 3001)           |
+
+### `apps/web/.env`
+
+| Variable                 | Description              |
+| ------------------------ | ------------------------ |
+| `VITE_SUPABASE_URL`      | Supabase project URL     |
+| `VITE_SUPABASE_ANON_KEY` | Supabase anon public key |
 
 ## Code Quality
 

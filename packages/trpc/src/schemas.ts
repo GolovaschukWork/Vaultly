@@ -1,10 +1,5 @@
-import { initTRPC, TRPCError } from '@trpc/server';
+import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
-
-export const t = initTRPC.create();
-
-export const router = t.router;
-export const publicProcedure = t.procedure;
 
 export const nameSchema = z
   .string()
@@ -18,6 +13,27 @@ export const dataRoomCreateSchema = z.object({
 
 export const dataRoomDeleteSchema = z.object({
   id: z.string().cuid(),
+});
+
+export const roomMemberRoleSchema = z.enum(['EDITOR', 'VIEWER']);
+
+export const memberInviteSchema = z.object({
+  dataRoomId: z.string().cuid(),
+  email: z.string().trim().email('invalidEmail').max(255, 'emailTooLong'),
+  role: roomMemberRoleSchema.default('VIEWER'),
+});
+
+export const memberListSchema = z.object({
+  dataRoomId: z.string().cuid(),
+});
+
+export const memberRemoveSchema = z.object({
+  id: z.string().cuid(),
+});
+
+export const memberUpdateRoleSchema = z.object({
+  id: z.string().cuid(),
+  role: roomMemberRoleSchema,
 });
 
 export const folderListSchema = z.object({
@@ -111,6 +127,13 @@ export function createConflictError(message = 'An item with this name already ex
 export function createNotFoundError(message = 'Resource not found') {
   return new TRPCError({
     code: 'NOT_FOUND',
+    message,
+  });
+}
+
+export function createForbiddenError(message = 'Forbidden') {
+  return new TRPCError({
+    code: 'FORBIDDEN',
     message,
   });
 }

@@ -6,12 +6,12 @@ import {
   ToastTitle,
   ToastViewport,
 } from '@vaultly/ui';
-import { useToast } from '@/hooks/use-toast';
+import { TOAST_REMOVE_DELAY, useToast } from '@/hooks/use-toast';
 
 export function Toaster() {
   const { toasts } = useToast();
   return (
-    <ToastProvider>
+    <ToastProvider duration={TOAST_REMOVE_DELAY}>
       {toasts.map(({ id, title, description, action, ...props }) => (
         <Toast key={id} {...props}>
           <div className="grid gap-1">

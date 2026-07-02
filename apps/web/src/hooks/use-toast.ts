@@ -9,7 +9,7 @@ type ToasterToast = ToastProps & {
 };
 
 const TOAST_LIMIT = 3;
-const TOAST_REMOVE_DELAY = 10000;
+export const TOAST_REMOVE_DELAY = 10000;
 
 let count = 0;
 function genId() {
