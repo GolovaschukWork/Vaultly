@@ -4,13 +4,24 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { setupTrpc } from './trpc/trpc.setup';
 
-config({ path: resolve(__dirname, '../.env') });
+if (process.env.NODE_ENV !== 'production') {
+  config({ path: resolve(__dirname, '../.env') });
+}
+
+function getCorsOrigins(): string[] {
+  const fromEnv = process.env.CORS_ORIGIN?.split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  if (fromEnv?.length) return fromEnv;
+
+  return ['http://localhost:5173', 'http://localhost:4173'];
+}
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   app.enableCors({
-    origin: ['http://localhost:5173', 'http://localhost:4173'],
+    origin: getCorsOrigins(),
     credentials: true,
   });
 

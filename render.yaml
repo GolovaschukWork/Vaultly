@@ -1,0 +1,32 @@
+# Render Blueprint — Vaultly API (NestJS + tRPC)
+# Docs: https://render.com/docs/blueprint-spec
+#
+# Deploy: Render Dashboard → New → Blueprint → connect repo
+# Or create a Web Service manually with the settings below.
+
+services:
+  - type: web
+    name: vaultly-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm install && npm run db:generate && npx turbo run build --filter=@vaultly/api
+    startCommand: node apps/api/dist/main.js
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        sync: false
+      - key: DIRECT_URL
+        sync: false
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_SERVICE_ROLE_KEY
+        sync: false
+      - key: SUPABASE_STORAGE_BUCKET
+        value: vaultly-files
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false

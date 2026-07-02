@@ -9,7 +9,12 @@ import { Toaster } from '@/components/toaster';
 import { AuthProvider } from '@/providers/auth-provider';
 
 function getBaseUrl() {
+  const apiUrl = import.meta.env.VITE_API_URL;
+  if (apiUrl) return apiUrl.replace(/\/$/, '');
+
+  // Dev: Vite proxies /trpc to localhost:3001
   if (typeof window !== 'undefined') return '';
+
   return 'http://localhost:3001';
 }
 
