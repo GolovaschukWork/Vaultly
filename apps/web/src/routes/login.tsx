@@ -14,6 +14,8 @@ import {
 } from '@/lib/auth-oauth';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
+import { LanguageSwitcher } from '@/components/language-switcher';
+import { ThemeToggle } from '@/components/theme-toggle';
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -149,7 +151,12 @@ function LoginPage() {
   const isBusy = isSubmitting || isOAuthLoading;
 
   return (
-    <div className="app-gradient bg-surface flex min-h-screen items-center justify-center p-4">
+    <div className="app-gradient bg-surface relative flex min-h-screen items-center justify-center p-4">
+      <div className="absolute top-4 right-4 flex items-center gap-1">
+        <LanguageSwitcher />
+        <ThemeToggle />
+      </div>
+
       <div className="border-border bg-surface w-full max-w-md rounded-2xl border p-8 shadow-lg">
         <div className="mb-8 flex flex-col items-center text-center">
           <div className="from-brand-600 to-brand-500 mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br shadow-sm">
