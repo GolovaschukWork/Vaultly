@@ -429,6 +429,6 @@ Coverage includes Zod schema validation, utility helpers, file storage key gener
 
 ---
 
-## License
+## AI Usage
 
-MIT
+I chose the core architecture and key technical decisions myself (monorepo, tRPC, PostgreSQL + Supabase Storage, Vercel + Render split). I used Cursor as a pair-programmer for boilerplate, Supabase OAuth/Storage integration, deployment config, refactoring (RoomExplorer, server-side storage purge), UI polish, animations, and README. I personally reviewed and validated critical areas: auth/RLS, web–API separation, CORS, and end-to-end flows via manual testing.

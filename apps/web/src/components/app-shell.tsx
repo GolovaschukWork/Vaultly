@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link, useLocation } from '@tanstack/react-router';
 import { LanguageSwitcher } from './language-switcher';
 import { ThemeToggle } from './theme-toggle';
+import { AppFooter } from './app-footer';
 import { useUIStore } from '@/stores/ui-store';
 import { useAuth } from '@/providers/auth-provider';
 
@@ -113,6 +114,8 @@ export function AppShell({ children, sidebar, activityPanel, header }: AppShellP
           {activityPanel && <div className="bg-surface shrink-0 xl:hidden">{activityPanel}</div>}
         </main>
       </div>
+
+      <AppFooter />
     </div>
   );
 }

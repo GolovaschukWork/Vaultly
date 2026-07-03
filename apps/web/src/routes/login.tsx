@@ -16,6 +16,7 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/providers/auth-provider';
 import { LanguageSwitcher } from '@/components/language-switcher';
 import { ThemeToggle } from '@/components/theme-toggle';
+import { AppFooter } from '@/components/app-footer';
 
 export const Route = createFileRoute('/login')({
   component: LoginPage,
@@ -151,121 +152,125 @@ function LoginPage() {
   const isBusy = isSubmitting || isOAuthLoading;
 
   return (
-    <div className="app-gradient bg-surface relative flex min-h-screen items-center justify-center p-4">
+    <div className="app-gradient bg-surface relative flex min-h-screen flex-col p-4">
       <div className="absolute top-4 right-4 flex items-center gap-1">
         <LanguageSwitcher />
         <ThemeToggle />
       </div>
 
-      <div className="animate-fade-in-up border-border bg-surface w-full max-w-md rounded-2xl border p-8 shadow-lg">
-        <div className="mb-8 flex flex-col items-center text-center">
-          <div className="from-brand-600 to-brand-500 mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br shadow-sm">
-            <Vault className="h-6 w-6 text-white" />
-          </div>
-          <h1 className="text-content-primary text-2xl font-bold">{t('common:appName')}</h1>
-          <p className="text-content-secondary mt-1 text-sm">
-            {mode === 'signIn' ? t('auth:subtitle') : t('auth:signUpSubtitle')}
-          </p>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4" noValidate>
-          <div className="space-y-2">
-            <Label htmlFor="email">{t('auth:email')}</Label>
-            <Input
-              id="email"
-              type="email"
-              autoComplete="email"
-              maxLength={255}
-              aria-invalid={!!form.formState.errors.email}
-              {...form.register('email')}
-            />
-            <FieldError message={form.formState.errors.email?.message} />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">{t('auth:password')}</Label>
-            <Input
-              id="password"
-              type="password"
-              autoComplete={mode === 'signIn' ? 'current-password' : 'new-password'}
-              maxLength={128}
-              aria-invalid={!!form.formState.errors.password}
-              {...form.register('password')}
-            />
-            <FieldError message={form.formState.errors.password?.message} />
-          </div>
-
-          {mode === 'signUp' && (
-            <div className="space-y-2">
-              <Label htmlFor="confirmPassword">{t('auth:confirmPassword')}</Label>
-              <Input
-                id="confirmPassword"
-                type="password"
-                autoComplete="new-password"
-                maxLength={128}
-                aria-invalid={!!form.formState.errors.confirmPassword}
-                {...form.register('confirmPassword')}
-              />
-              <FieldError message={form.formState.errors.confirmPassword?.message} />
+      <div className="flex flex-1 items-center justify-center">
+        <div className="animate-fade-in-up border-border bg-surface w-full max-w-md rounded-2xl border p-8 shadow-lg">
+          <div className="mb-8 flex flex-col items-center text-center">
+            <div className="from-brand-600 to-brand-500 mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br shadow-sm">
+              <Vault className="h-6 w-6 text-white" />
             </div>
-          )}
+            <h1 className="text-content-primary text-2xl font-bold">{t('common:appName')}</h1>
+            <p className="text-content-secondary mt-1 text-sm">
+              {mode === 'signIn' ? t('auth:subtitle') : t('auth:signUpSubtitle')}
+            </p>
+          </div>
 
-          {rootError && <AuthError message={rootError} />}
+          <form onSubmit={handleSubmit} className="space-y-4" noValidate>
+            <div className="space-y-2">
+              <Label htmlFor="email">{t('auth:email')}</Label>
+              <Input
+                id="email"
+                type="email"
+                autoComplete="email"
+                maxLength={255}
+                aria-invalid={!!form.formState.errors.email}
+                {...form.register('email')}
+              />
+              <FieldError message={form.formState.errors.email?.message} />
+            </div>
 
-          <Button type="submit" className="w-full" disabled={isBusy}>
-            {isSubmitting ? (
+            <div className="space-y-2">
+              <Label htmlFor="password">{t('auth:password')}</Label>
+              <Input
+                id="password"
+                type="password"
+                autoComplete={mode === 'signIn' ? 'current-password' : 'new-password'}
+                maxLength={128}
+                aria-invalid={!!form.formState.errors.password}
+                {...form.register('password')}
+              />
+              <FieldError message={form.formState.errors.password?.message} />
+            </div>
+
+            {mode === 'signUp' && (
+              <div className="space-y-2">
+                <Label htmlFor="confirmPassword">{t('auth:confirmPassword')}</Label>
+                <Input
+                  id="confirmPassword"
+                  type="password"
+                  autoComplete="new-password"
+                  maxLength={128}
+                  aria-invalid={!!form.formState.errors.confirmPassword}
+                  {...form.register('confirmPassword')}
+                />
+                <FieldError message={form.formState.errors.confirmPassword?.message} />
+              </div>
+            )}
+
+            {rootError && <AuthError message={rootError} />}
+
+            <Button type="submit" className="w-full" disabled={isBusy}>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  {t('common:loading')}
+                </>
+              ) : mode === 'signIn' ? (
+                t('auth:signIn')
+              ) : (
+                t('auth:signUp')
+              )}
+            </Button>
+          </form>
+
+          <div className="relative my-6">
+            <div className="absolute inset-0 flex items-center">
+              <span className="border-border w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs tracking-wide uppercase">
+              <span className="bg-surface text-content-muted px-2">{t('auth:orContinueWith')}</span>
+            </div>
+          </div>
+
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            disabled={isBusy}
+            onClick={() => void handleGoogleSignIn()}
+          >
+            {isOAuthLoading ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
                 {t('common:loading')}
               </>
-            ) : mode === 'signIn' ? (
-              t('auth:signIn')
             ) : (
-              t('auth:signUp')
+              <>
+                <GoogleIcon />
+                {t('auth:continueWithGoogle')}
+              </>
             )}
           </Button>
-        </form>
 
-        <div className="relative my-6">
-          <div className="absolute inset-0 flex items-center">
-            <span className="border-border w-full border-t" />
-          </div>
-          <div className="relative flex justify-center text-xs tracking-wide uppercase">
-            <span className="bg-surface text-content-muted px-2">{t('auth:orContinueWith')}</span>
-          </div>
+          <p className="text-content-secondary mt-6 text-center text-sm">
+            {mode === 'signIn' ? t('auth:noAccount') : t('auth:hasAccount')}{' '}
+            <button
+              type="button"
+              className="text-brand-600 dark:text-brand-400 font-medium hover:underline"
+              onClick={() => setMode(mode === 'signIn' ? 'signUp' : 'signIn')}
+            >
+              {mode === 'signIn' ? t('auth:signUp') : t('auth:signIn')}
+            </button>
+          </p>
         </div>
-
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          disabled={isBusy}
-          onClick={() => void handleGoogleSignIn()}
-        >
-          {isOAuthLoading ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" />
-              {t('common:loading')}
-            </>
-          ) : (
-            <>
-              <GoogleIcon />
-              {t('auth:continueWithGoogle')}
-            </>
-          )}
-        </Button>
-
-        <p className="text-content-secondary mt-6 text-center text-sm">
-          {mode === 'signIn' ? t('auth:noAccount') : t('auth:hasAccount')}{' '}
-          <button
-            type="button"
-            className="text-brand-600 dark:text-brand-400 font-medium hover:underline"
-            onClick={() => setMode(mode === 'signIn' ? 'signUp' : 'signIn')}
-          >
-            {mode === 'signIn' ? t('auth:signUp') : t('auth:signIn')}
-          </button>
-        </p>
       </div>
+
+      <AppFooter />
     </div>
   );
 }
