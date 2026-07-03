@@ -19,7 +19,8 @@ export async function hardDeleteFileRecord(fileId: string): Promise<void> {
   if (!file) return;
 
   await purgeFileStorage(file.storageKey);
-  await prisma.file.delete({ where: { id: fileId } });
+  // deleteMany is idempotent — safe when purge races with expired cleanup or double client calls
+  await prisma.file.deleteMany({ where: { id: fileId } });
 }
 
 export async function purgeExpiredSoftDeletedFiles(dataRoomId?: string): Promise<void> {
